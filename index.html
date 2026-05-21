@@ -794,7 +794,7 @@ async function extractFromPDF(file) {
   loading(true, 'AI가 작업지시서를 분석하고 있습니다...');
   try {
     const base64 = await toBase64(file);
-    const res = await fetch(`${SUPABASE_URL}/functions/v1/extract-pdf`, {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/swift-endpoint`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
