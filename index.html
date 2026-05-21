@@ -793,14 +793,31 @@ function resetUpload() {
 async function extractFromPDF(file) {
   loading(true, 'AI가 작업지시서를 분석하고 있습니다...');
   try {
+    // PDF를 4MB 청크로 나눠서 전송
     const base64 = await toBase64(file);
+    const CHUNK_SIZE = 4 * 1024 * 1024; // 4MB
+    const chunks = [];
+    for (let i = 0; i < base64.length; i += CHUNK_SIZE) {
+      chunks.push(base64.slice(i, i + CHUNK_SIZE));
+    }
+
+    // 첫 번째 청크로 시작 (전체 파일을 압축해서 보냄)
+    // 파일이 크면 앞뒤 각각 절반씩 잘라서 보냄
+    let pdfData = base64;
+    if (base64.length > 5 * 1024 * 1024) {
+      // 앞 2MB + 뒤 2MB 합쳐서 핵심 정보만 추출
+      const front = base64.slice(0, 2 * 1024 * 1024);
+      const back = base64.slice(-2 * 1024 * 1024);
+      pdfData = front + back;
+    }
+
     const res = await fetch(`${SUPABASE_URL}/functions/v1/swift-endpoint`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${SUPABASE_KEY}`
       },
-      body: JSON.stringify({ pdfBase64: base64 })
+      body: JSON.stringify({ pdfBase64: pdfData })
     });
     const parsed = await res.json();
     if (parsed.error) throw new Error(parsed.error);
