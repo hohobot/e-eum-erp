@@ -469,7 +469,7 @@
 <body>
 
 <!-- ─── LOGIN SCREEN ─────────────────────────────────────── -->
-<div id="login-screen" class="active">
+<div id="login-screen">
   <div class="login-box">
     <div class="login-logo">EEUM ERP</div>
     <div class="login-sub">이음전산 · 프로모션 벤더</div>
@@ -2532,7 +2532,9 @@ async function initAuth() {
 }
 
 // ─── INIT ────────────────────────────────────────────────────
-initAuth();
+// initAuth(); // 개발중 로그인 비활성화
+document.getElementById("user-badge").style.display = "none";
+loadDashboard();
 </script>
 </body>
 </html>
