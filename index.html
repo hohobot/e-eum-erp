@@ -1102,31 +1102,28 @@
 
       <!-- 빠른 발주 모달 -->
       <div id="quick-po-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:300; align-items:center; justify-content:center;">
-        <div style="background:var(--bg2); border:1px solid var(--border2); border-radius:var(--radius); padding:24px; width:600px; max-width:90vw; max-height:80vh; overflow-y:auto;">
+        <div style="background:var(--bg2); border:1px solid var(--border2); border-radius:var(--radius); padding:24px; width:680px; max-width:92vw; max-height:85vh; display:flex; flex-direction:column;">
           <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
             <h3 style="font-size:15px; font-weight:500;" id="quick-po-title">빠른 발주</h3>
             <span style="cursor:pointer; color:var(--text3);" onclick="closeQuickPO()">✕</span>
           </div>
-          <div class="form-grid" style="margin-bottom:12px;">
-            <div class="form-group">
-              <label>발주서 구분</label>
-              <select id="quick-po-type" style="background:var(--bg3); border:1px solid var(--border2); border-radius:6px; padding:8px 12px; color:var(--text); font-family:var(--font-sans); font-size:13px; outline:none; width:100%;">
-                <option value="MAIN">메인 발주서</option>
-                <option value="SAMPLE">샘플 발주서</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>업체명</label>
-              <input type="text" id="quick-po-supplier" placeholder="업체명" style="background:var(--bg3); border:1px solid var(--border2); border-radius:6px; padding:8px 12px; color:var(--text); font-family:var(--font-sans); font-size:13px; outline:none; width:100%;">
-            </div>
+          <div style="margin-bottom:12px;">
+            <label style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:1px; display:block; margin-bottom:6px;">발주서 구분</label>
+            <select id="quick-po-type" style="background:var(--bg3); border:1px solid var(--border2); border-radius:6px; padding:8px 12px; color:var(--text); font-family:var(--font-sans); font-size:13px; outline:none; width:200px;">
+              <option value="MAIN">메인 발주서</option>
+              <option value="SAMPLE">샘플 발주서</option>
+            </select>
           </div>
-          <div class="form-group" style="margin-bottom:16px;">
-            <label>발주할 부자재 선택</label>
-            <div id="quick-po-items" style="margin-top:8px; max-height:300px; overflow-y:auto;"></div>
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+            <label style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:1px;">발주할 원부자재 선택</label>
+            <label style="display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text2); cursor:pointer;">
+              <input type="checkbox" id="quick-po-select-all" onchange="toggleSelectAll(this)"> 전체선택
+            </label>
           </div>
-          <div style="display:flex; justify-content:flex-end; gap:8px;">
+          <div id="quick-po-items" style="flex:1; overflow-y:auto; min-height:200px; max-height:400px; border:1px solid var(--border); border-radius:6px;"></div>
+          <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:16px;">
             <button class="btn btn-ghost" onclick="closeQuickPO()">취소</button>
-            <button class="btn btn-primary" onclick="submitQuickPO()">💾 발주 저장</button>
+            <button class="btn btn-primary" onclick="goToPOPage()">📋 발주서 작성으로 이동</button>
           </div>
         </div>
       </div>
@@ -2421,58 +2418,124 @@ let _quickPOOrderId = null;
 async function openQuickPO(orderId, styleNum, brand) {
   _quickPOOrderId = orderId;
   document.getElementById('quick-po-title').textContent = `빠른 발주 — ${styleNum}`;
-  document.getElementById('quick-po-supplier').value = '';
+  document.getElementById('quick-po-select-all').checked = false;
 
-  // 부자재 목록 로드
   const { data: trims } = await db.from('order_trims').select('*').eq('order_id', orderId);
   const { data: fabrics } = await db.from('order_fabrics').select('*').eq('order_id', orderId);
 
   const container = document.getElementById('quick-po-items');
   const allItems = [
-    ...(fabrics||[]).map(f => ({...f, _type:'fabric', _label:`[원단] ${f.material_name||f.material_code||'—'} (${f.supplier||'—'})`})),
-    ...(trims||[]).map(t => ({...t, _type:'trim', _label:`[부자재] ${t.trim_name||'—'} (${t.supplier||'—'})`}))
+    ...(fabrics||[]).map(f => ({...f, _type:'fabric', _name: f.material_name||f.material_code||'—', _supplier: f.supplier||'—'})),
+    ...(trims||[]).map(t => ({...t, _type:'trim', _name: t.trim_name||'—', _supplier: t.supplier||'—'}))
   ];
 
   if (allItems.length === 0) {
-    container.innerHTML = '<div style="color:var(--text3); font-size:13px; padding:8px;">등록된 원부자재가 없습니다.</div>';
+    container.innerHTML = '<div style="color:var(--text3); font-size:13px; padding:16px;">등록된 원부자재가 없습니다.</div>';
   } else {
-    container.innerHTML = `
-      <table style="width:100%; border-collapse:collapse; font-size:12px;">
-        <thead>
-          <tr style="color:var(--text3); border-bottom:1px solid var(--border);">
-            <th style="padding:6px 8px; text-align:left; width:28px;"></th>
-            <th style="padding:6px 8px; text-align:left;">구분</th>
-            <th style="padding:6px 8px; text-align:left;">자재명</th>
-            <th style="padding:6px 8px; text-align:left;">공급처</th>
-            <th style="padding:6px 8px; text-align:left;">상태</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${allItems.map(item => `
-            <tr style="border-bottom:1px solid var(--border); ${item.po_status==='발주완료'?'opacity:0.5;':''}" 
-                onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">
-              <td style="padding:8px;">
-                <input type="checkbox" value="${item.id}" data-type="${item._type}" ${item.po_status==='발주완료'?'disabled checked':''}>
-              </td>
-              <td style="padding:8px;">
-                <span style="font-size:10px; padding:2px 6px; border-radius:3px; background:${item._type==='fabric'?'var(--accent2)':'var(--bg3)'}; color:${item._type==='fabric'?'#fff':'var(--text2)'};">
-                  ${item._type==='fabric'?'원단':'부자재'}
-                </span>
-              </td>
-              <td style="padding:8px; color:var(--text1);">${item._type==='fabric'?(item.material_name||item.material_code||'—'):(item.trim_name||'—')}</td>
-              <td style="padding:8px; color:var(--text2);">${item.supplier||'—'}</td>
-              <td style="padding:8px;">
-                ${item.po_status==='발주완료'
-                  ? `<span style="font-size:10px; color:var(--info);">✓ 완료 ${item.po_date||''}</span>`
-                  : '<span style="font-size:10px; color:var(--text3);">미발주</span>'}
-              </td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>`;
+    // 업체별 그룹핑
+    const groups = {};
+    allItems.forEach(item => {
+      const s = item._supplier;
+      if (!groups[s]) groups[s] = [];
+      groups[s].push(item);
+    });
+
+    container.innerHTML = Object.entries(groups).map(([supplier, items]) => `
+      <div style="border-bottom:1px solid var(--border);">
+        <div style="padding:8px 12px; background:var(--bg3); font-size:11px; font-weight:500; color:var(--text2); display:flex; align-items:center; gap:8px;">
+          <span>🏢 ${supplier}</span>
+          <span style="color:var(--text3);">(${items.length}개)</span>
+        </div>
+        ${items.map(item => `
+          <div style="display:flex; align-items:center; gap:10px; padding:8px 12px; ${item.po_status==='발주완료'?'opacity:0.5;':''}"
+               onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">
+            <input type="checkbox" value="${item.id}" data-type="${item._type}" ${item.po_status==='발주완료'?'disabled checked':''} class="po-item-cb">
+            <span style="font-size:10px; padding:2px 6px; border-radius:3px; background:${item._type==='fabric'?'var(--accent2)':'var(--border2)'}; color:${item._type==='fabric'?'#000':'var(--text2)'}; white-space:nowrap;">
+              ${item._type==='fabric'?'원단':'부자재'}
+            </span>
+            <span style="font-size:13px; color:var(--text1); flex:1;">${item._name}</span>
+            <span style="font-size:11px; color:${item.po_status==='발주완료'?'var(--info)':'var(--text3)'};">
+              ${item.po_status==='발주완료'?`✓ 완료 ${item.po_date||''}`:'미발주'}
+            </span>
+          </div>
+        `).join('')}
+      </div>
+    `).join('');
   }
 
   document.getElementById('quick-po-modal').style.display = 'flex';
+}
+
+function toggleSelectAll(cb) {
+  document.querySelectorAll('#quick-po-items .po-item-cb:not([disabled])').forEach(el => el.checked = cb.checked);
+}
+
+function goToPOPage() {
+  const checked = document.querySelectorAll('#quick-po-items .po-item-cb:checked:not([disabled])');
+  if (checked.length === 0) { toast('발주할 항목을 선택해주세요.', 'error'); return; }
+  const type = document.getElementById('quick-po-type').value;
+  const selectedIds = Array.from(checked).map(cb => ({ id: cb.value, itemType: cb.dataset.type }));
+  const orderId = _quickPOOrderId; // save before close clears it
+  closeQuickPO();
+  navigate('po-new');
+  setTimeout(() => prefillPOFromQuick(orderId, selectedIds, type), 150);
+}
+
+async function prefillPOFromQuick(orderId, selectedIds, poType) {
+  if (!orderId || !selectedIds.length) return;
+  try {
+    // 오더 정보 가져오기
+    const { data: order } = await db.from('orders').select('*').eq('id', orderId).single();
+    if (!order) return;
+
+    // 발주서 폼 기본 정보 채우기
+    const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val||''; };
+    setVal('po-type', poType);
+    setVal('po-date', new Date().toISOString().split('T')[0]);
+    // 스타일 검색란에 스타일번호 표시
+    const styleSearch = document.getElementById('po-style-search');
+    if (styleSearch) {
+      styleSearch.value = `${order.brand||''} ${order.style_number||''}`.trim();
+      styleSearch.dataset.selectedId = orderId;
+    }
+
+    // 선택된 자재 정보 가져오기
+    const fabricIds = selectedIds.filter(s => s.itemType==='fabric').map(s => s.id);
+    const trimIds = selectedIds.filter(s => s.itemType==='trim').map(s => s.id);
+
+    let items = [];
+    if (fabricIds.length) {
+      const { data: fabrics } = await db.from('order_fabrics').select('*').in('id', fabricIds);
+      (fabrics||[]).forEach(f => items.push({
+        item_name: f.material_name||f.material_code||'',
+        spec: f.composition||'',
+        _supplier: f.supplier||''
+      }));
+    }
+    if (trimIds.length) {
+      const { data: trims } = await db.from('order_trims').select('*').in('id', trimIds);
+      (trims||[]).forEach(t => items.push({
+        item_name: t.trim_name||'',
+        spec: t.spec||'',
+        placement: t.position||'',
+        _supplier: t.supplier||''
+      }));
+    }
+
+    // 발주서 아이템 테이블 채우기
+    const tbody = document.getElementById('po-items-body');
+    if (tbody) {
+      tbody.innerHTML = '';
+      items.forEach(item => addPOItemRow(item));
+    }
+
+    // 업체명 첫번째 자재의 supplier로 자동 채우기
+    if (items.length) setVal('po-supplier', items[0]._supplier);
+
+    toast(`${selectedIds.length}개 항목이 발주서에 채워졌습니다!`);
+  } catch(e) {
+    console.error('prefillPOFromQuick error:', e);
+  }
 }
 
 function closeQuickPO() {
