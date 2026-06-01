@@ -2436,16 +2436,40 @@ async function openQuickPO(orderId, styleNum, brand) {
   if (allItems.length === 0) {
     container.innerHTML = '<div style="color:var(--text3); font-size:13px; padding:8px;">등록된 원부자재가 없습니다.</div>';
   } else {
-    container.innerHTML = allItems.map(item => `
-      <label style="display:flex; align-items:center; gap:8px; padding:8px; border-radius:6px; cursor:pointer; ${item.po_status==='발주완료'?'opacity:0.5;':''}" 
-             onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">
-        <input type="checkbox" value="${item.id}" data-type="${item._type}" ${item.po_status==='발주완료'?'disabled checked':''}>
-        <span style="font-size:13px; flex:1;">${item._label}</span>
-        ${item.po_status==='발주완료' 
-          ? `<span class="badge badge-info" style="font-size:10px;">발주완료 ${item.po_date||''}</span>`
-          : ''}
-      </label>
-    `).join('');
+    container.innerHTML = `
+      <table style="width:100%; border-collapse:collapse; font-size:12px;">
+        <thead>
+          <tr style="color:var(--text3); border-bottom:1px solid var(--border);">
+            <th style="padding:6px 8px; text-align:left; width:28px;"></th>
+            <th style="padding:6px 8px; text-align:left;">구분</th>
+            <th style="padding:6px 8px; text-align:left;">자재명</th>
+            <th style="padding:6px 8px; text-align:left;">공급처</th>
+            <th style="padding:6px 8px; text-align:left;">상태</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${allItems.map(item => `
+            <tr style="border-bottom:1px solid var(--border); ${item.po_status==='발주완료'?'opacity:0.5;':''}" 
+                onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">
+              <td style="padding:8px;">
+                <input type="checkbox" value="${item.id}" data-type="${item._type}" ${item.po_status==='발주완료'?'disabled checked':''}>
+              </td>
+              <td style="padding:8px;">
+                <span style="font-size:10px; padding:2px 6px; border-radius:3px; background:${item._type==='fabric'?'var(--accent2)':'var(--bg3)'}; color:${item._type==='fabric'?'#fff':'var(--text2)'};">
+                  ${item._type==='fabric'?'원단':'부자재'}
+                </span>
+              </td>
+              <td style="padding:8px; color:var(--text1);">${item._type==='fabric'?(item.material_name||item.material_code||'—'):(item.trim_name||'—')}</td>
+              <td style="padding:8px; color:var(--text2);">${item.supplier||'—'}</td>
+              <td style="padding:8px;">
+                ${item.po_status==='발주완료'
+                  ? `<span style="font-size:10px; color:var(--info);">✓ 완료 ${item.po_date||''}</span>`
+                  : '<span style="font-size:10px; color:var(--text3);">미발주</span>'}
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>`;
   }
 
   document.getElementById('quick-po-modal').style.display = 'flex';
