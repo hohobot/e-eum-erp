@@ -2533,7 +2533,8 @@ async function initAuth() {
 
 // ─── INIT ────────────────────────────────────────────────────
 // initAuth(); // 개발중 로그인 비활성화
-document.getElementById("user-badge").style.display = "none";
+const _badge = document.getElementById("user-badge");
+if (_badge) _badge.style.display = "none";
 loadDashboard();
 </script>
 </body>
