@@ -464,6 +464,17 @@
   }
   .user-badge:hover { background: var(--border); }
 
+
+  /* ─── DATE INPUT ─────────────────────────────────────────── */
+  input[type="date"] {
+    color-scheme: dark;
+    color: var(--text1);
+  }
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(1) brightness(2);
+    cursor: pointer;
+  }
+
 </style>
 </head>
 <body>
@@ -841,12 +852,13 @@
                   <th>공장</th>
                   <th>원자재</th>
                   <th>부자재</th>
+                  <th>출력</th>
                   <th>등록일</th>
                   <th width="70">발주</th>
                 </tr>
               </thead>
               <tbody id="order-list-body">
-                <tr><td colspan="8"><div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">등록된 오더가 없습니다</div></div></td></tr>
+                <tr><td colspan="9"><div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">등록된 오더가 없습니다</div></div></td></tr>
               </tbody>
             </table>
           </div>
@@ -1528,6 +1540,7 @@ async function loadOrderList() {
   const orderIds = filtered.map(o => o.id);
   const { data: fabrics } = await db.from('order_fabrics').select('order_id, po_status').in('order_id', orderIds);
   const { data: trims } = await db.from('order_trims').select('order_id, po_status').in('order_id', orderIds);
+  const { data: poList } = await db.from('purchase_orders').select('order_id, printed_at').in('order_id', orderIds);
 
   function getPoStatus(orderId, items) {
     const orderItems = (items||[]).filter(i => i.order_id === orderId);
@@ -1542,6 +1555,10 @@ async function loadOrderList() {
   tbody.innerHTML = filtered.map(o => {
     const fabStatus = getPoStatus(o.id, fabrics);
     const trimStatus = getPoStatus(o.id, trims);
+    const printed = (poList||[]).some(p => p.order_id === o.id && p.printed_at);
+    const printBadge = printed
+      ? '<span class="badge badge-success" style="font-size:10px;">출력</span>'
+      : '<span style="color:var(--text3);font-size:11px;">미출력</span>';
     const fabBadge = fabStatus === 'done' ? '<span class="badge badge-accent">완료</span>' :
                      fabStatus === 'partial' ? '<span class="badge badge-info">일부</span>' :
                      '<span style="color:var(--text3);font-size:11px;">미발주</span>';
@@ -1558,6 +1575,7 @@ async function loadOrderList() {
       <td onclick="openOrderDetail('${o.id}')" style="cursor:pointer;">${o.factory||'—'}</td>
       <td style="text-align:center;">${fabBadge}</td>
       <td style="text-align:center;">${trimBadge}</td>
+      <td style="text-align:center;">${printBadge}</td>
       <td onclick="openOrderDetail('${o.id}')" style="cursor:pointer;color:var(--text3);font-size:11px;">${new Date(o.created_at).toLocaleDateString('ko-KR')}</td>
       <td style="text-align:center;">
         <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); openQuickPO('${o.id}', '${o.style_number||''}', '${o.brand||''}')" style="font-size:11px; padding:4px 8px;">발주</button>
@@ -2227,6 +2245,8 @@ async function printPO() {
   const poId = detailContent.dataset.poId;
   const { data: po } = await db.from('purchase_orders').select('*, purchase_order_items(*)').eq('id', poId).single();
   if (!po) return;
+  // 출력 시 printed_at 업데이트
+  await db.from('purchase_orders').update({ printed_at: new Date().toISOString() }).eq('id', poId);
   generatePOPrint(po);
 }
 
@@ -2540,6 +2560,8 @@ async function prefillPOFromQuick(orderId, selectedIds, poType) {
 
 function closeQuickPO() {
   document.getElementById('quick-po-modal').style.display = 'none';
+  document.getElementById('quick-po-items').innerHTML = '';
+  document.getElementById('quick-po-select-all').checked = false;
   _quickPOOrderId = null;
 }
 
