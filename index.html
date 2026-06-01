@@ -2185,8 +2185,26 @@ async function openPODetail(id) {
 
 async function deletePO() {
   if (!confirm('이 발주서를 삭제하시겠습니까?')) return;
-  // id를 제목에서 가져오기 어려우므로 목록으로 이동
-  navigate('po-list');
+  const detailContent = document.getElementById('po-detail-content');
+  if (!detailContent || !detailContent.dataset.poId) {
+    toast('발주서 ID를 찾을 수 없습니다.', 'error');
+    return;
+  }
+  const poId = detailContent.dataset.poId;
+  loading(true, '삭제 중...');
+  try {
+    // 발주서 아이템 먼저 삭제
+    await db.from('purchase_order_items').delete().eq('po_id', poId);
+    // 발주서 삭제
+    const { error } = await db.from('purchase_orders').delete().eq('id', poId);
+    if (error) throw error;
+    toast('발주서가 삭제됐습니다.');
+    navigate('po-list');
+  } catch(e) {
+    toast('삭제 오류: ' + e.message, 'error');
+  } finally {
+    loading(false);
+  }
 }
 
 async function previewPOBeforeSave() {
