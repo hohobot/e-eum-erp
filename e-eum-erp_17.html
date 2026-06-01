@@ -1,0 +1,2538 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>이음 ERP</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=DM+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #0f0f0f;
+    --bg2: #161616;
+    --bg3: #1e1e1e;
+    --border: #2a2a2a;
+    --border2: #333;
+    --text: #e8e8e8;
+    --text2: #888;
+    --text3: #555;
+    --accent: #c8f542;
+    --accent2: #a8d530;
+    --info: #4a9eff;
+    --danger: #ff5252;
+    --success: #4caf50;
+    --radius: 8px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Noto Sans KR', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 14px;
+  }
+
+  /* LAYOUT */
+  .app { display: flex; min-height: 100vh; }
+
+  /* SIDEBAR */
+  .sidebar {
+    width: 220px;
+    background: var(--bg2);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    z-index: 100;
+  }
+  .logo {
+    padding: 24px 20px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .logo-text {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: -0.5px;
+  }
+  .logo-sub {
+    font-size: 10px;
+    color: var(--text3);
+    letter-spacing: 0.1em;
+    margin-top: 2px;
+    font-family: 'DM Mono', monospace;
+  }
+  .nav { padding: 12px 0; flex: 1; }
+  .nav-section {
+    padding: 8px 16px 4px;
+    font-size: 10px;
+    color: var(--text3);
+    letter-spacing: 0.1em;
+    font-family: 'DM Mono', monospace;
+  }
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 20px;
+    color: var(--text2);
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.15s;
+    border-left: 2px solid transparent;
+  }
+  .nav-item:hover { color: var(--text); background: var(--bg3); }
+  .nav-item.active { color: var(--accent); border-left-color: var(--accent); background: rgba(200,245,66,0.05); }
+  .nav-icon { font-size: 15px; width: 18px; text-align: center; }
+
+  .sidebar-bottom {
+    padding: 16px;
+    border-top: 1px solid var(--border);
+  }
+  .user-badge {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+    color: var(--text2);
+  }
+  .user-avatar {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: var(--accent);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; color: #000;
+    flex-shrink: 0;
+  }
+
+  /* MAIN */
+  .main {
+    margin-left: 220px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+
+  .topbar {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 0 28px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+  .page-title { font-size: 15px; font-weight: 500; }
+  .topbar-actions { display: flex; gap: 8px; }
+
+  .content { padding: 28px; flex: 1; }
+
+  /* BUTTONS */
+  .btn {
+    padding: 8px 16px;
+    border-radius: var(--radius);
+    border: none;
+    font-family: 'Noto Sans KR', sans-serif;
+    font-size: 13px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.15s;
+    font-weight: 500;
+  }
+  .btn-primary { background: var(--accent); color: #000; }
+  .btn-primary:hover { background: var(--accent2); }
+  .btn-ghost { background: transparent; color: var(--text2); border: 1px solid var(--border2); }
+  .btn-ghost:hover { color: var(--text); border-color: #555; }
+  .btn-danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
+  .btn-sm { padding: 5px 10px; font-size: 12px; }
+
+  /* CARDS */
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .card-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  /* FORMS */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+  .form-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  .form-group label { font-size: 11px; color: var(--text2); letter-spacing: 0.03em; }
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    padding: 8px 12px;
+    color: var(--text);
+    font-family: 'Noto Sans KR', sans-serif;
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.15s;
+    width: 100%;
+  }
+  .form-group input:focus,
+  .form-group select:focus,
+  .form-group textarea:focus { border-color: var(--accent); }
+  .form-group select option { background: var(--bg3); }
+  .form-group textarea { resize: vertical; min-height: 70px; }
+
+  /* STEP BAR */
+  .step-bar {
+    display: flex;
+    align-items: center;
+    margin-bottom: 24px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 20px;
+  }
+  .step { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text3); }
+  .step.active { color: var(--accent); }
+  .step.done { color: var(--success); }
+  .step-circle {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    border: 1.5px solid currentColor;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700;
+    flex-shrink: 0;
+  }
+  .step.done .step-circle { background: var(--success); border-color: var(--success); color: #000; }
+  .step.active .step-circle { background: rgba(200,245,66,0.1); }
+  .step-line { flex: 1; height: 1px; background: var(--border); margin: 0 12px; }
+
+  /* TABLE */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th {
+    text-align: left;
+    padding: 10px 12px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text3);
+    border-bottom: 1px solid var(--border);
+    letter-spacing: 0.04em;
+    font-family: 'DM Mono', monospace;
+  }
+  td { padding: 11px 12px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--bg3); }
+  .table-input {
+    background: transparent;
+    border: none;
+    color: var(--text);
+    font-family: 'Noto Sans KR', sans-serif;
+    font-size: 13px;
+    outline: none;
+    width: 100%;
+  }
+  .table-input:focus { background: var(--bg3); border-radius: 4px; padding: 2px 6px; }
+
+  .add-row-btn {
+    display: flex; align-items: center; gap: 6px;
+    padding: 10px 12px;
+    color: var(--text3);
+    cursor: pointer;
+    font-size: 12px;
+    border-top: 1px solid var(--border);
+    transition: color 0.15s;
+  }
+  .add-row-btn:hover { color: var(--accent); }
+
+  /* BADGE */
+  .badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 500;
+  }
+  .badge-accent { background: rgba(200,245,66,0.1); color: var(--accent); border: 1px solid rgba(200,245,66,0.2); }
+  .badge-info { background: rgba(74,158,255,0.1); color: var(--info); border: 1px solid rgba(74,158,255,0.2); }
+
+  /* COLOR CHIPS */
+  .color-list { display: flex; flex-wrap: wrap; gap: 6px; }
+  .color-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: 20px;
+    padding: 3px 10px 3px 6px;
+    font-size: 12px;
+    color: var(--text);
+  }
+  .color-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .color-add { border-style: dashed; cursor: pointer; color: var(--text3); }
+  .color-add:hover { color: var(--accent); border-color: var(--accent); }
+
+  /* FILE UPLOAD */
+  .upload-zone {
+    border: 1.5px dashed var(--border2);
+    border-radius: var(--radius);
+    padding: 32px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 16px;
+  }
+  .upload-zone:hover { border-color: var(--accent); background: rgba(200,245,66,0.03); }
+  .upload-icon { font-size: 28px; margin-bottom: 8px; }
+  .upload-text { font-size: 14px; color: var(--text2); margin-bottom: 4px; }
+  .upload-sub { font-size: 11px; color: var(--text3); }
+  #file-input { display: none; }
+
+  .file-preview-bar {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    padding: 10px 14px;
+    margin-bottom: 16px;
+  }
+  .file-preview-icon { font-size: 20px; color: var(--info); }
+  .file-preview-name { font-size: 13px; font-weight: 500; flex: 1; }
+  .file-preview-status { font-size: 11px; }
+
+  /* PAGES */
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* ORDER LIST */
+  .order-row { cursor: pointer; }
+  .order-row:hover td { background: rgba(200,245,66,0.04); }
+  .style-num { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--accent); }
+
+  /* TOAST */
+  .toast {
+    position: fixed; bottom: 24px; right: 24px;
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    padding: 12px 18px;
+    font-size: 13px;
+    z-index: 999;
+    display: none;
+    animation: slide-up 0.2s ease;
+  }
+  .toast.show { display: flex; align-items: center; gap: 8px; }
+  .toast.success { border-color: var(--success); color: var(--success); }
+  .toast.error { border-color: var(--danger); color: var(--danger); }
+  @keyframes slide-up { from { transform: translateY(10px); opacity:0; } to { transform: translateY(0); opacity:1; } }
+
+  /* LOADING */
+  .loading-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7);
+    display: none; align-items: center; justify-content: center;
+    z-index: 200;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .loading-overlay.show { display: flex; }
+  .spinner {
+    width: 32px; height: 32px;
+    border: 3px solid var(--border2);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text { font-size: 13px; color: var(--text2); }
+
+  /* STATS */
+  .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+  .stat-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+  }
+  .stat-label { font-size: 11px; color: var(--text3); margin-bottom: 8px; font-family: 'DM Mono', monospace; letter-spacing: 0.05em; }
+  .stat-value { font-size: 24px; font-weight: 700; color: var(--text); }
+  .stat-unit { font-size: 12px; color: var(--text3); margin-left: 4px; font-weight: 400; }
+
+  .action-footer {
+    display: flex; justify-content: flex-end; gap: 8px;
+    padding-top: 16px;
+    margin-top: 8px;
+    border-top: 1px solid var(--border);
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text3);
+  }
+  .empty-icon { font-size: 36px; margin-bottom: 12px; }
+  .empty-text { font-size: 14px; color: var(--text2); margin-bottom: 4px; }
+  .empty-sub { font-size: 12px; }
+
+  /* AI BADGE */
+  .ai-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: rgba(74,158,255,0.1);
+    color: var(--info);
+    border: 1px solid rgba(74,158,255,0.2);
+    border-radius: 20px;
+    padding: 2px 10px;
+    font-size: 11px;
+    font-weight: 500;
+  }
+
+  .divider { height: 1px; background: var(--border); margin: 4px 0 16px; }
+
+  /* ─── LOGIN ─────────────────────────────────────────────── */
+  #login-screen {
+    display: none;
+    position: fixed; inset: 0;
+    background: var(--bg1);
+    z-index: 9999;
+    align-items: center;
+    justify-content: center;
+  }
+  #login-screen.active { display: flex; }
+  .login-box {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 40px 36px;
+    width: 360px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+  .login-logo {
+    font-family: 'DM Mono', monospace;
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--accent);
+    letter-spacing: 2px;
+    margin-bottom: 4px;
+  }
+  .login-sub {
+    font-size: 12px;
+    color: var(--text3);
+    margin-bottom: 32px;
+  }
+  .login-box .form-group { margin-bottom: 16px; }
+  .login-box label { font-size: 11px; color: var(--text3); margin-bottom: 6px; display: block; text-transform: uppercase; letter-spacing: 1px; }
+  .login-box input {
+    width: 100%; padding: 10px 12px;
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 6px; color: var(--text1); font-size: 14px;
+    box-sizing: border-box;
+  }
+  .login-box input:focus { outline: none; border-color: var(--accent); }
+  .login-btn {
+    width: 100%; padding: 11px;
+    background: var(--accent); color: #fff;
+    border: none; border-radius: 6px;
+    font-size: 14px; font-weight: 500;
+    cursor: pointer; margin-top: 8px;
+    transition: opacity 0.2s;
+  }
+  .login-btn:hover { opacity: 0.85; }
+  .login-err { font-size: 12px; color: #f87171; margin-top: 10px; min-height: 16px; }
+  .user-badge {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 10px; background: var(--bg3);
+    border-radius: 6px; font-size: 12px; color: var(--text2);
+    cursor: pointer;
+  }
+  .user-badge:hover { background: var(--border); }
+
+</style>
+</head>
+<body>
+
+<!-- ─── LOGIN SCREEN ─────────────────────────────────────── -->
+<div id="login-screen" class="active">
+  <div class="login-box">
+    <div class="login-logo">EEUM ERP</div>
+    <div class="login-sub">이음전산 · 프로모션 벤더</div>
+    <div class="form-group">
+      <label>이메일</label>
+      <input type="email" id="login-email" placeholder="email@example.com" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <div class="form-group">
+      <label>비밀번호</label>
+      <input type="password" id="login-pw" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="login-btn" onclick="doLogin()">로그인</button>
+    <div class="login-err" id="login-err"></div>
+  </div>
+</div>
+
+
+<!-- LOADING -->
+<div class="loading-overlay" id="loading">
+  <div class="spinner"></div>
+  <div class="loading-text" id="loading-text">처리 중...</div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- APP -->
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="logo-text">이음 ERP</div>
+      <div class="logo-sub">e-eum f&c system</div>
+    </div>
+    <nav class="nav">
+      <div class="nav-section">MAIN</div>
+      <div class="nav-item active" onclick="navigate('dashboard')">
+        <span class="nav-icon">◈</span> 대시보드
+      </div>
+      <div class="nav-section" style="margin-top:8px;">ORDER</div>
+      <div class="nav-item" onclick="navigate('order-new')">
+        <span class="nav-icon">＋</span> 오더 등록
+      </div>
+      <div class="nav-item" onclick="navigate('order-list')">
+        <span class="nav-icon">≡</span> 오더 목록
+      </div>
+      <div class="nav-section" style="margin-top:8px;">DOCUMENTS</div>
+      <div class="nav-item" onclick="navigate('po-list')">
+        <span class="nav-icon">📋</span> 발주서
+      </div>
+      <div class="nav-section" style="margin-top:8px;">COMING SOON</div>
+      <div class="nav-item" style="opacity:0.4; pointer-events:none;">
+        <span class="nav-icon">↗</span> 진행현황
+      </div>
+      <div class="nav-item" style="opacity:0.4; pointer-events:none;">
+        <span class="nav-icon">₩</span> 원가관리
+      </div>
+    </nav>
+    <div class="sidebar-bottom">
+      <div class="user-badge">
+        <div class="user-avatar">이음</div>
+        <div>
+          <div style="font-size:12px; color:var(--text);">이음에프앤씨</div>
+          <div style="font-size:10px; color:var(--text3);">관리자</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- TOPBAR -->
+    <div class="topbar">
+      <div class="page-title" id="page-title">대시보드</div>
+      <div class="topbar-actions">
+        <button class="btn btn-primary" onclick="navigate('order-new')">＋ 오더 등록</button>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- DASHBOARD -->
+      <div class="page active" id="page-dashboard">
+
+        <!-- 필터 바 -->
+        <div style="display:flex; gap:10px; margin-bottom:20px; align-items:center; flex-wrap:wrap;">
+          <select id="filter-season" onchange="loadDashboard()" style="background:var(--bg2); border:1px solid var(--border2); border-radius:6px; padding:7px 12px; color:var(--text); font-family:var(--font-sans); font-size:13px; outline:none; min-width:120px;">
+            <option value="">전체 시즌</option>
+          </select>
+          <select id="filter-brand" onchange="loadDashboard()" style="background:var(--bg2); border:1px solid var(--border2); border-radius:6px; padding:7px 12px; color:var(--text); font-family:var(--font-sans); font-size:13px; outline:none; min-width:160px;">
+            <option value="">전체 브랜드</option>
+          </select>
+          <button class="btn btn-ghost btn-sm" onclick="resetFilters()">필터 초기화</button>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-label">TOTAL ORDERS</div>
+            <div class="stat-value" id="stat-total">0<span class="stat-unit">건</span></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">TOTAL QTY</div>
+            <div class="stat-value" id="stat-qty">0<span class="stat-unit">장</span></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">BRANDS</div>
+            <div class="stat-value" id="stat-brands">0<span class="stat-unit">개</span></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">THIS SEASON</div>
+            <div class="stat-value" id="stat-season">—</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">
+            <span id="dashboard-title">전체 오더</span>
+            <button class="btn btn-ghost btn-sm" onclick="navigate('order-list')">전체 보기</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>스타일 넘버</th>
+                  <th>브랜드</th>
+                  <th>품명</th>
+                  <th>시즌</th>
+                  <th>납기</th>
+                  <th>수량</th>
+                </tr>
+              </thead>
+              <tbody id="dashboard-orders">
+                <tr><td colspan="6"><div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">등록된 오더가 없습니다</div><div class="empty-sub">오더 등록 버튼을 눌러 시작하세요</div></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ORDER NEW -->
+      <div class="page" id="page-order-new">
+
+        <div class="step-bar">
+          <div class="step done" id="step1">
+            <div class="step-circle">✓</div> PDF 업로드
+          </div>
+          <div class="step-line"></div>
+          <div class="step active" id="step2">
+            <div class="step-circle">2</div> 정보 확인
+          </div>
+          <div class="step-line"></div>
+          <div class="step" id="step3">
+            <div class="step-circle">3</div> 저장 완료
+          </div>
+        </div>
+
+        <!-- UPLOAD ZONE -->
+        <div id="upload-section">
+          <div class="upload-zone" onclick="document.getElementById('file-input').click()">
+            <div class="upload-icon">📄</div>
+            <div class="upload-text">작업지시서 PDF를 업로드하세요</div>
+            <div class="upload-sub">클릭하거나 파일을 드래그하세요</div>
+          </div>
+          <input type="file" id="file-input" accept=".pdf" onchange="handleFile(this)">
+        </div>
+
+        <!-- FILE PREVIEW -->
+        <div class="file-preview-bar" id="file-preview" style="display:none;">
+          <span class="file-preview-icon">📄</span>
+          <span class="file-preview-name" id="file-name">—</span>
+          <span class="file-preview-status ai-badge">✦ AI 분석 완료</span>
+          <button class="btn btn-ghost btn-sm" onclick="resetUpload()">다시 업로드</button>
+        </div>
+
+        <!-- FORM -->
+        <div id="order-form" style="display:none;">
+
+          <div class="card">
+            <div class="card-title">
+              기본 정보
+              <span class="ai-badge" id="ai-badge" style="display:none;">✦ AI 자동 추출</span>
+            </div>
+            <div class="form-grid">
+              <div class="form-group">
+                <label>브랜드명</label>
+                <input type="text" id="f-brand" placeholder="예: MASTER BUNNY EDITION">
+              </div>
+              <div class="form-group">
+                <label>시즌</label>
+                <input type="text" id="f-season" placeholder="예: 26FW">
+              </div>
+            </div>
+            <div class="form-grid">
+              <div class="form-group">
+                <label>스타일 넘버</label>
+                <input type="text" id="f-style" placeholder="예: 411F3PT102">
+              </div>
+              <div class="form-group">
+                <label>품명</label>
+                <input type="text" id="f-item" placeholder="예: PANTS">
+              </div>
+            </div>
+            <div class="form-grid-3">
+              <div class="form-group">
+                <label>생산구분</label>
+                <select id="f-type">
+                  <option value="">선택</option>
+                  <option value="CMT">CMT</option>
+                  <option value="OEM">OEM</option>
+                  <option value="ODM">ODM</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>계약 납기</label>
+                <input type="date" id="f-delivery">
+              </div>
+              <div class="form-group">
+                <label>판매가 (원)</label>
+                <input type="number" id="f-price" placeholder="398000">
+              </div>
+            </div>
+            <div class="form-grid">
+              <div class="form-group">
+                <label>디자이너</label>
+                <input type="text" id="f-designer" placeholder="이름">
+              </div>
+              <div class="form-group">
+                <label>담당 공장</label>
+                <input type="text" id="f-factory" placeholder="예: 쯔보">
+              </div>
+            </div>
+          </div>
+
+          <!-- COLORS -->
+          <div class="card">
+            <div class="card-title">컬러 / 수량</div>
+            <table>
+              <thead>
+                <tr>
+                  <th>컬러코드</th>
+                  <th>컬러명</th>
+                  <th>수량</th>
+                  <th width="40"></th>
+                </tr>
+              </thead>
+              <tbody id="color-body">
+                <tr>
+                  <td><input class="table-input" placeholder="GY"></td>
+                  <td><input class="table-input" placeholder="GREY"></td>
+                  <td><input class="table-input" type="number" placeholder="215"></td>
+                  <td><span style="cursor:pointer;color:var(--text3);" onclick="this.closest('tr').remove()">✕</span></td>
+                </tr>
+              </tbody>
+            </table>
+            <div class="add-row-btn" onclick="addColorRow()">＋ 컬러 추가</div>
+          </div>
+
+          <!-- FABRICS -->
+          <div class="card">
+            <div class="card-title">원단 정보</div>
+            <table>
+              <thead>
+                <tr>
+                  <th>구분</th>
+                  <th>자재코드</th>
+                  <th>자재명</th>
+                  <th>혼용율</th>
+                  <th>공급처</th>
+                  <th>요척</th>
+                  <th width="40"></th>
+                </tr>
+              </thead>
+              <tbody id="fabric-body">
+                <tr>
+                  <td><input class="table-input" placeholder="겉감"></td>
+                  <td><input class="table-input" placeholder="AP23-065"></td>
+                  <td><input class="table-input" placeholder="원단명"></td>
+                  <td><input class="table-input" placeholder="C 100%"></td>
+                  <td><input class="table-input" placeholder="공급처"></td>
+                  <td><input class="table-input" placeholder="2.16Y"></td>
+                  <td><span style="cursor:pointer;color:var(--text3);" onclick="this.closest('tr').remove()">✕</span></td>
+                </tr>
+              </tbody>
+            </table>
+            <div class="add-row-btn" onclick="addFabricRow()">＋ 원단 추가</div>
+          </div>
+
+          <!-- TRIMS -->
+          <div class="card">
+            <div class="card-title">부자재 내역</div>
+            <table>
+              <thead>
+                <tr>
+                  <th>코드</th>
+                  <th>부자재명</th>
+                  <th>규격</th>
+                  <th>수량</th>
+                  <th>발주업체</th>
+                  <th>부위</th>
+                  <th width="40"></th>
+                </tr>
+              </thead>
+              <tbody id="trim-body"></tbody>
+            </table>
+            <div class="add-row-btn" onclick="addTrimRow()">＋ 부자재 추가</div>
+          </div>
+
+          <!-- MEMO -->
+          <div class="card">
+            <div class="card-title">메모 / 특이사항</div>
+            <div class="form-group">
+              <textarea id="f-memo" placeholder="특이사항을 입력하세요"></textarea>
+            </div>
+          </div>
+
+          <div class="action-footer">
+            <button class="btn btn-ghost" onclick="resetForm()">초기화</button>
+            <button class="btn btn-primary" onclick="saveOrder()">💾 저장하기</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ORDER LIST -->
+      <div class="page" id="page-order-list">
+        <!-- 필터 -->
+        <div style="display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; align-items:center;">
+          <select id="ol-filter-brand" onchange="loadOrderList()" style="background:var(--bg2); border:1px solid var(--border2); border-radius:6px; padding:7px 12px; color:var(--text); font-family:var(--font-sans); font-size:13px; outline:none; min-width:160px;">
+            <option value="">전체 브랜드</option>
+          </select>
+          <select id="ol-filter-item" onchange="loadOrderList()" style="background:var(--bg2); border:1px solid var(--border2); border-radius:6px; padding:7px 12px; color:var(--text); font-family:var(--font-sans); font-size:13px; outline:none; min-width:130px;">
+            <option value="">전체 품명</option>
+          </select>
+          <select id="ol-filter-season" onchange="loadOrderList()" style="background:var(--bg2); border:1px solid var(--border2); border-radius:6px; padding:7px 12px; color:var(--text); font-family:var(--font-sans); font-size:13px; outline:none; min-width:110px;">
+            <option value="">전체 시즌</option>
+          </select>
+          <select id="ol-filter-month" onchange="loadOrderList()" style="background:var(--bg2); border:1px solid var(--border2); border-radius:6px; padding:7px 12px; color:var(--text); font-family:var(--font-sans); font-size:13px; outline:none; min-width:120px;">
+            <option value="">납기 전체</option>
+            <option value="01">1월</option><option value="02">2월</option><option value="03">3월</option>
+            <option value="04">4월</option><option value="05">5월</option><option value="06">6월</option>
+            <option value="07">7월</option><option value="08">8월</option><option value="09">9월</option>
+            <option value="10">10월</option><option value="11">11월</option><option value="12">12월</option>
+          </select>
+          <select id="ol-filter-factory" onchange="loadOrderList()" style="background:var(--bg2); border:1px solid var(--border2); border-radius:6px; padding:7px 12px; color:var(--text); font-family:var(--font-sans); font-size:13px; outline:none; min-width:120px;">
+            <option value="">전체 공장</option>
+          </select>
+          <button class="btn btn-ghost btn-sm" onclick="resetOrderListFilters()">초기화</button>
+          <button class="btn btn-primary btn-sm" style="margin-left:auto;" onclick="navigate('order-new')">＋ 오더 등록</button>
+        </div>
+        <div class="card">
+          <div class="card-title">
+            <span id="ol-result-count">전체 오더</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>스타일 넘버</th>
+                  <th>브랜드</th>
+                  <th>품명</th>
+                  <th>시즌</th>
+                  <th>납기</th>
+                  <th>수량</th>
+                  <th>공장</th>
+                  <th>원자재</th>
+                  <th>부자재</th>
+                  <th>등록일</th>
+                  <th width="70">발주</th>
+                </tr>
+              </thead>
+              <tbody id="order-list-body">
+                <tr><td colspan="8"><div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">등록된 오더가 없습니다</div></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+
+      <!-- ORDER DETAIL -->
+      <div class="page" id="page-order-detail">
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
+          <button class="btn btn-ghost btn-sm" onclick="navigate('order-list')">← 목록으로</button>
+          <span id="detail-title" style="font-size:15px; font-weight:500;"></span>
+          <button class="btn btn-primary btn-sm" onclick="saveOrderEdit()" style="margin-left:auto;">💾 수정 저장</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteOrder()">🗑 삭제</button>
+        </div>
+
+        <div class="card">
+          <div class="card-title">기본 정보</div>
+          <input type="hidden" id="edit-id">
+          <div class="form-grid">
+            <div class="form-group"><label>브랜드명</label><input type="text" id="edit-brand"></div>
+            <div class="form-group"><label>시즌</label><input type="text" id="edit-season" placeholder="예: 26FW"></div>
+          </div>
+          <div class="form-grid">
+            <div class="form-group"><label>스타일 넘버</label><input type="text" id="edit-style"></div>
+            <div class="form-group"><label>품명</label><input type="text" id="edit-item"></div>
+          </div>
+          <div class="form-grid-3">
+            <div class="form-group"><label>생산구분</label>
+              <select id="edit-type">
+                <option value="">선택</option>
+                <option value="CMT">CMT</option>
+                <option value="OEM">OEM</option>
+                <option value="ODM">ODM</option>
+              </select>
+            </div>
+            <div class="form-group"><label>계약 납기</label><input type="date" id="edit-delivery"></div>
+            <div class="form-group"><label>판매가 (원)</label><input type="number" id="edit-price"></div>
+          </div>
+          <div class="form-grid">
+            <div class="form-group"><label>디자이너</label><input type="text" id="edit-designer"></div>
+            <div class="form-group"><label>담당 공장</label><input type="text" id="edit-factory"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">컬러 / 수량</div>
+          <table>
+            <thead><tr><th>컬러코드</th><th>컬러명</th><th>수량</th><th width="40"></th></tr></thead>
+            <tbody id="edit-color-body"></tbody>
+          </table>
+          <div class="add-row-btn" onclick="addEditColorRow()">＋ 컬러 추가</div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">원단 정보</div>
+          <table>
+            <thead><tr><th>구분</th><th>자재코드</th><th>자재명</th><th>혼용율</th><th>공급처</th><th>요척</th><th width="40"></th></tr></thead>
+            <tbody id="edit-fabric-body"></tbody>
+          </table>
+          <div class="add-row-btn" onclick="addEditFabricRow()">＋ 원단 추가</div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">
+            부자재 내역
+            <div style="display:flex; gap:8px; align-items:center;">
+              <span id="trim-lock-badge" style="display:none;" class="badge badge-info">🔒 발주완료 항목 포함</span>
+              <button id="trim-edit-btn" class="btn btn-ghost btn-sm" onclick="toggleTrimEdit()" style="display:none;">✏️ 수정모드</button>
+            </div>
+          </div>
+          <table>
+            <thead><tr><th>코드</th><th>부자재명</th><th>규격</th><th>수량</th><th>발주업체</th><th>부위</th><th>발주상태</th><th width="40"></th></tr></thead>
+            <tbody id="edit-trim-body"></tbody>
+          </table>
+          <div class="add-row-btn" id="trim-add-btn" onclick="addEditTrimRow()">＋ 부자재 추가</div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">메모 / 특이사항</div>
+          <div class="form-group"><textarea id="edit-memo"></textarea></div>
+        </div>
+      </div>
+
+
+      <!-- PO LIST -->
+      <div class="page" id="page-po-list">
+        <div style="display:flex; gap:10px; margin-bottom:20px; align-items:center; flex-wrap:wrap;">
+          <button class="btn btn-primary" onclick="navigate('po-new')">＋ 발주서 작성</button>
+          <select id="po-filter-type" onchange="loadPOList()" style="background:var(--bg2); border:1px solid var(--border2); border-radius:6px; padding:7px 12px; color:var(--text); font-family:var(--font-sans); font-size:13px; outline:none;">
+            <option value="">전체 구분</option>
+            <option value="SAMPLE">샘플발주서</option>
+            <option value="MAIN">메인발주서</option>
+          </select>
+          <select id="po-filter-brand" onchange="document.getElementById('po-filter-style').value=''; loadPOList()" style="background:var(--bg2); border:1px solid var(--border2); border-radius:6px; padding:7px 12px; color:var(--text); font-family:var(--font-sans); font-size:13px; outline:none; min-width:160px;">
+            <option value="">전체 브랜드</option>
+          </select>
+          <select id="po-filter-style" onchange="loadPOList()" style="background:var(--bg2); border:1px solid var(--border2); border-radius:6px; padding:7px 12px; color:var(--text); font-family:var(--font-sans); font-size:13px; outline:none; min-width:160px;">
+            <option value="">전체 스타일</option>
+          </select>
+          <select id="po-filter-supplier" onchange="loadPOList()" style="background:var(--bg2); border:1px solid var(--border2); border-radius:6px; padding:7px 12px; color:var(--text); font-family:var(--font-sans); font-size:13px; outline:none; min-width:140px;">
+            <option value="">전체 업체</option>
+          </select>
+          <button class="btn btn-ghost btn-sm" onclick="resetPOFilters()">초기화</button>
+        </div>
+        <div class="card">
+          <div class="card-title">발주서 목록</div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>발주일</th>
+                  <th>구분</th>
+                  <th>업체명</th>
+                  <th>스타일</th>
+                  <th>납기</th>
+                  <th>상태</th>
+                  <th>금액</th>
+                </tr>
+              </thead>
+              <tbody id="po-list-body">
+                <tr><td colspan="7"><div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">발주서가 없습니다</div></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- PO NEW -->
+      <div class="page" id="page-po-new">
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
+          <button class="btn btn-ghost btn-sm" onclick="navigate('po-list')">← 목록으로</button>
+          <span style="font-size:15px; font-weight:500;">발주서 작성</span>
+        </div>
+
+        <div class="card">
+          <div class="card-title">발주서 기본 정보</div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>발주서 구분</label>
+              <select id="po-type" onchange="onPOTypeChange()">
+                <option value="">선택</option>
+                <option value="SAMPLE">샘플 발주서</option>
+                <option value="MAIN">메인 발주서</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>업체명</label>
+              <input type="text" id="po-supplier" placeholder="예: 재우컴퍼니" list="supplier-list">
+              <datalist id="supplier-list"></datalist>
+            </div>
+          </div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>발주일</label>
+              <input type="date" id="po-date" style="cursor:pointer;">
+            </div>
+            <div class="form-group">
+              <label>납기일</label>
+              <input type="date" id="po-delivery-date" style="cursor:pointer;">
+            </div>
+          </div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>업체 연락처</label>
+              <input type="text" id="po-contact" placeholder="업체 연락처">
+            </div>
+            <div class="form-group">
+              <label>업체 FAX</label>
+              <input type="text" id="po-fax" placeholder="업체 FAX">
+            </div>
+          </div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>담당자명</label>
+              <input type="text" id="po-manager" placeholder="예: 최현호" list="manager-list" oninput="onManagerSelect(this.value)">
+              <datalist id="manager-list">
+                <option value="최현호" data-tel="010-9060-0156">
+              </datalist>
+            </div>
+            <div class="form-group">
+              <label>담당자 연락처</label>
+              <input type="text" id="po-manager-tel" placeholder="자동입력됩니다">
+            </div>
+          </div>
+        </div>
+
+        <!-- 스타일 선택 -->
+        <div class="card" id="po-style-section">
+          <div class="card-title">
+            스타일 선택
+            <button class="btn btn-ghost btn-sm" onclick="addSelectedStyle()">＋ 스타일 추가</button>
+          </div>
+          <div id="po-style-list">
+            <div style="color:var(--text3); font-size:13px; padding:12px;">발주서 구분을 먼저 선택하세요</div>
+          </div>
+        </div>
+
+        <!-- 발주 항목 -->
+        <div class="card" id="po-items-section" style="display:none;">
+          <div class="card-title">발주 항목</div>
+          <table>
+            <thead>
+              <tr>
+                <th>스타일번호</th>
+                <th>품명</th>
+                <th>색상</th>
+                <th>부자재명</th>
+                <th>규격</th>
+                <th>적용위치</th>
+                <th>오더수량</th>
+                <th>요척</th>
+                <th>발주수량</th>
+                <th>단위</th>
+                <th>단가</th>
+                <th>금액</th>
+                <th width="30"></th>
+              </tr>
+            </thead>
+            <tbody id="po-items-body"></tbody>
+          </table>
+          <div class="add-row-btn" onclick="addPOItem()">＋ 항목 추가</div>
+          <div style="text-align:right; padding:12px 12px 0; font-size:13px; color:var(--text2);">
+            합계: <span id="po-total" style="font-size:15px; font-weight:700; color:var(--accent);">₩0</span>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-top:16px;">
+          <label>비고</label>
+          <textarea id="po-memo" placeholder="비고 사항"></textarea>
+        </div>
+
+        <div class="action-footer" style="margin-top:16px;">
+          <button class="btn btn-ghost" onclick="navigate('po-list')">취소</button>
+          <button class="btn btn-ghost btn-sm" onclick="alert('미리보기 준비 중')">👁 미리보기</button>
+          <button class="btn btn-primary" onclick="savePO()">💾 저장</button>
+        </div>
+      </div>
+
+      <!-- PO DETAIL -->
+      <div class="page" id="page-po-detail">
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
+          <button class="btn btn-ghost btn-sm" onclick="navigate('po-list')">← 목록으로</button>
+          <span id="po-detail-title" style="font-size:15px; font-weight:500;"></span>
+          <div style="margin-left:auto; display:flex; gap:8px;">
+            <button class="btn btn-ghost btn-sm" onclick="printPO()">🖨 출력</button>
+            <button class="btn btn-danger btn-sm" onclick="deletePO()">🗑 삭제</button>
+          </div>
+        </div>
+        <div id="po-detail-content"></div>
+      </div>
+
+
+      <!-- 빠른 발주 모달 -->
+      <div id="quick-po-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:300; align-items:center; justify-content:center;">
+        <div style="background:var(--bg2); border:1px solid var(--border2); border-radius:var(--radius); padding:24px; width:600px; max-width:90vw; max-height:80vh; overflow-y:auto;">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+            <h3 style="font-size:15px; font-weight:500;" id="quick-po-title">빠른 발주</h3>
+            <span style="cursor:pointer; color:var(--text3);" onclick="closeQuickPO()">✕</span>
+          </div>
+          <div class="form-grid" style="margin-bottom:12px;">
+            <div class="form-group">
+              <label>발주서 구분</label>
+              <select id="quick-po-type" style="background:var(--bg3); border:1px solid var(--border2); border-radius:6px; padding:8px 12px; color:var(--text); font-family:var(--font-sans); font-size:13px; outline:none; width:100%;">
+                <option value="MAIN">메인 발주서</option>
+                <option value="SAMPLE">샘플 발주서</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>업체명</label>
+              <input type="text" id="quick-po-supplier" placeholder="업체명" style="background:var(--bg3); border:1px solid var(--border2); border-radius:6px; padding:8px 12px; color:var(--text); font-family:var(--font-sans); font-size:13px; outline:none; width:100%;">
+            </div>
+          </div>
+          <div class="form-group" style="margin-bottom:16px;">
+            <label>발주할 부자재 선택</label>
+            <div id="quick-po-items" style="margin-top:8px; max-height:300px; overflow-y:auto;"></div>
+          </div>
+          <div style="display:flex; justify-content:flex-end; gap:8px;">
+            <button class="btn btn-ghost" onclick="closeQuickPO()">취소</button>
+            <button class="btn btn-primary" onclick="submitQuickPO()">💾 발주 저장</button>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+  </main>
+</div><!-- /app -->
+
+<script>
+// ─── SUPABASE 설정 ───────────────────────────────────────────
+const SUPABASE_URL = 'https://ggzlpuqilxwbdfsixypj.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdnemxwdXFpbHh3YmRmc2l4eXBqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzMDExNTYsImV4cCI6MjA5NDg3NzE1Nn0.jmbaE4-QrzrMz2IZauRpFKMOiinRve3I1merV7ebYIs';
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ─── NAVIGATION ──────────────────────────────────────────────
+const pages = { dashboard:'대시보드', 'order-new':'오더 등록', 'order-list':'오더 목록', 'order-detail':'오더 상세', 'po-list':'발주서', 'po-new':'발주서 작성', 'po-detail':'발주서 상세' };
+function navigate(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  document.getElementById('page-title').textContent = pages[id] || '';
+  const navMap = { dashboard: 0, 'order-new': 1, 'order-list': 2, 'order-detail': 2, 'po-list': 3, 'po-new': 3, 'po-detail': 3 };
+  document.querySelectorAll('.nav-item')[navMap[id]]?.classList.add('active');
+  if (id === 'dashboard') loadDashboard();
+  if (id === 'order-list') loadOrderList();
+  if (id === 'po-list') loadPOList();
+}
+
+// ─── TOAST ───────────────────────────────────────────────────
+function toast(msg, type = 'success') {
+  const el = document.getElementById('toast');
+  el.textContent = (type === 'success' ? '✓ ' : '✕ ') + msg;
+  el.className = 'toast show ' + type;
+  setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+function loading(show, text = '처리 중...') {
+  const el = document.getElementById('loading');
+  document.getElementById('loading-text').textContent = text;
+  el.classList.toggle('show', show);
+}
+
+// ─── FILE UPLOAD & AI EXTRACT ────────────────────────────────
+let currentFile = null;
+
+function handleFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  currentFile = file;
+  document.getElementById('file-name').textContent = file.name;
+  document.getElementById('file-preview').style.display = 'flex';
+  document.getElementById('upload-section').style.display = 'none';
+  extractFromPDF(file);
+}
+
+function resetUpload() {
+  currentFile = null;
+  document.getElementById('file-input').value = '';
+  document.getElementById('file-preview').style.display = 'none';
+  document.getElementById('upload-section').style.display = 'block';
+  document.getElementById('order-form').style.display = 'none';
+  document.getElementById('ai-badge').style.display = 'none';
+  resetForm();
+}
+
+async function extractFromPDF(file) {
+  loading(true, 'AI가 작업지시서를 분석하고 있습니다...');
+  try {
+    // PDF를 Anthropic API에 직접 전송 (Supabase 우회)
+    const base64 = await toBase64(file);
+    
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': getApiKey(),
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-5',
+        max_tokens: 4000,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } },
+            { type: 'text', text: '이 작업지시서 PDF에서 정보를 추출해서 JSON만 반환하세요. 마크다운 없이 순수 JSON만. 품번코드체계: 4번째자리=년도(F=2026,E=2025,D=2024), 5번째자리=시즌(3,4=FW/가을겨울, 1,2,5=SS/봄여름). 시즌은 반드시 26FW 또는 26SS 형식으로. 브랜드: 1번째자리(4=MASTER BUNNY EDITION, 5=PEARLY GATES, 1=PING, 2=FANTOM, 8=St ANDREWS). 품명은 반드시 영문 약자+영문명 형식으로: PT(Pants), JK(Jacket), TR(T-Shirts), JP(Outer), SW(Sweater), SK(Skirt), OP(One-piece). {"brand":"브랜드명전체영문","season":"26FW형식","style_number":"스타일넘버","item":"PT(Pants)형식","production_type":"CMT또는OEM","delivery_date":"YYYY-MM-DD","selling_price":숫자,"designer":"디자이너","memo":"특이사항요약","colors":[{"color_code":"코드","color_name":"컬러명","qty":수량}],"fabrics":[{"category":"구분","material_code":"코드","material_name":"자재명","composition":"혼용율","supplier":"공급처","yardage":"요척"}],"trims":[{"trim_code":"코드","trim_name":"부자재명","spec":"규격","qty":수량,"supplier":"공급처","position":"부위"}]}' }
+          ]
+        }]
+      })
+    });
+    const data = await res.json();
+    const text = data.content.map(c => c.text || '').join('');
+    const clean = text.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(clean);
+    fillForm(parsed);
+    document.getElementById('ai-badge').style.display = 'inline-flex';
+    toast('AI 추출 완료! 내용을 확인하고 수정하세요.');
+  } catch(e) {
+    console.error(e);
+    toast('AI 추출 중 오류가 발생했습니다. 직접 입력해 주세요.', 'error');
+  } finally {
+    loading(false);
+    document.getElementById('order-form').style.display = 'block';
+  }
+}
+
+function toBase64(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result.split(',')[1]);
+    r.onerror = () => rej(new Error('파일 읽기 실패'));
+    r.readAsDataURL(file);
+  });
+}
+
+// ─── FILL FORM ───────────────────────────────────────────────
+function fillForm(d) {
+  if (d.brand) document.getElementById('f-brand').value = d.brand;
+  if (d.season) document.getElementById('f-season').value = d.season;
+  if (d.style_number) document.getElementById('f-style').value = d.style_number;
+  if (d.item) document.getElementById('f-item').value = d.item;
+  if (d.production_type) document.getElementById('f-type').value = d.production_type;
+  if (d.delivery_date) document.getElementById('f-delivery').value = d.delivery_date;
+  if (d.selling_price) document.getElementById('f-price').value = d.selling_price;
+  if (d.designer) document.getElementById('f-designer').value = d.designer;
+  if (d.memo) document.getElementById('f-memo').value = d.memo;
+
+  // colors
+  if (d.colors && d.colors.length > 0) {
+    document.getElementById('color-body').innerHTML = '';
+    d.colors.forEach(c => addColorRow(c));
+  }
+  // fabrics
+  if (d.fabrics && d.fabrics.length > 0) {
+    document.getElementById('fabric-body').innerHTML = '';
+    d.fabrics.forEach(f => addFabricRow(f));
+  }
+  // trims
+  if (d.trims && d.trims.length > 0) {
+    document.getElementById('trim-body').innerHTML = '';
+    d.trims.forEach(t => addTrimRow(t));
+  }
+}
+
+// ─── ADD ROWS ────────────────────────────────────────────────
+function addColorRow(d = {}) {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><input class="table-input" value="${d.color_code||''}" placeholder="GY"></td>
+    <td><input class="table-input" value="${d.color_name||''}" placeholder="GREY"></td>
+    <td><input class="table-input" type="number" value="${d.qty||''}" placeholder="0"></td>
+    <td><span style="cursor:pointer;color:var(--text3);" onclick="this.closest('tr').remove()">✕</span></td>`;
+  document.getElementById('color-body').appendChild(tr);
+}
+
+function addFabricRow(d = {}) {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><input class="table-input" value="${d.category||''}" placeholder="겉감"></td>
+    <td><input class="table-input" value="${d.material_code||''}" placeholder="코드"></td>
+    <td><input class="table-input" value="${d.material_name||''}" placeholder="원단명"></td>
+    <td><input class="table-input" value="${d.composition||''}" placeholder="C 100%"></td>
+    <td><input class="table-input" value="${d.supplier||''}" placeholder="공급처"></td>
+    <td><input class="table-input" value="${d.yardage||''}" placeholder="2.16Y"></td>
+    <td><span style="cursor:pointer;color:var(--text3);" onclick="this.closest('tr').remove()">✕</span></td>`;
+  document.getElementById('fabric-body').appendChild(tr);
+}
+
+function addTrimRow(d = {}) {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><input class="table-input" value="${d.trim_code||''}" placeholder="코드"></td>
+    <td><input class="table-input" value="${d.trim_name||''}" placeholder="부자재명"></td>
+    <td><input class="table-input" value="${d.spec||''}" placeholder="규격"></td>
+    <td><input class="table-input" type="number" value="${d.qty||''}" placeholder="0"></td>
+    <td><input class="table-input" value="${d.supplier||''}" placeholder="발주업체"></td>
+    <td><input class="table-input" value="${d.position||''}" placeholder="부위"></td>
+    <td><span style="cursor:pointer;color:var(--text3);" onclick="this.closest('tr').remove()">✕</span></td>`;
+  document.getElementById('trim-body').appendChild(tr);
+}
+
+// ─── SAVE ORDER ──────────────────────────────────────────────
+async function saveOrder() {
+  const brand = document.getElementById('f-brand').value.trim();
+  const style = document.getElementById('f-style').value.trim();
+  if (!brand || !style) { toast('브랜드명과 스타일 넘버는 필수입니다.', 'error'); return; }
+
+  loading(true, '저장 중...');
+  try {
+    // 1. orders
+    const { data: order, error: oErr } = await db.from('orders').insert({
+      brand, season: document.getElementById('f-season').value,
+      style_number: style,
+      item: document.getElementById('f-item').value,
+      production_type: document.getElementById('f-type').value,
+      delivery_date: document.getElementById('f-delivery').value || null,
+      selling_price: parseInt(document.getElementById('f-price').value) || null,
+      designer: document.getElementById('f-designer').value,
+      factory: document.getElementById('f-factory').value,
+      memo: document.getElementById('f-memo').value,
+      total_qty: getTotalQty()
+    }).select().single();
+    if (oErr) throw oErr;
+
+    const oid = order.id;
+
+    // 2. colors
+    const colors = getTableRows('color-body', ['color_code','color_name','qty']);
+    if (colors.length > 0) {
+      const colorData = colors.map(r => ({ order_id: oid, color_code: r[0], color_name: r[1], qty: parseInt(r[2])||0 }));
+      await db.from('order_colors').insert(colorData);
+    }
+
+    // 3. fabrics
+    const fabrics = getTableRows('fabric-body', ['category','material_code','material_name','composition','supplier','yardage']);
+    if (fabrics.length > 0) {
+      const fabData = fabrics.map(r => ({ order_id: oid, category: r[0], material_code: r[1], material_name: r[2], composition: r[3], supplier: r[4], yardage: r[5] }));
+      await db.from('order_fabrics').insert(fabData);
+    }
+
+    // 4. trims
+    const trims = getTableRows('trim-body', ['trim_code','trim_name','spec','qty','supplier','position']);
+    if (trims.length > 0) {
+      const trimData = trims.map(r => ({ order_id: oid, trim_code: r[0], trim_name: r[1], spec: r[2], qty: parseFloat(r[3])||0, supplier: r[4], position: r[5] }));
+      await db.from('order_trims').insert(trimData);
+    }
+
+    toast('오더가 저장됐습니다!');
+    resetUpload();
+    resetForm();
+    setTimeout(() => navigate('order-list'), 800);
+
+  } catch(e) {
+    console.error(e);
+    toast('저장 중 오류가 발생했습니다: ' + e.message, 'error');
+  } finally {
+    loading(false);
+  }
+}
+
+function getTableRows(tbodyId, fields) {
+  const rows = document.getElementById(tbodyId).querySelectorAll('tr');
+  const result = [];
+  rows.forEach(tr => {
+    const inputs = tr.querySelectorAll('input');
+    const vals = Array.from(inputs).map(i => i.value.trim());
+    if (vals.some(v => v)) result.push(vals);
+  });
+  return result;
+}
+
+function getTotalQty() {
+  let total = 0;
+  document.getElementById('color-body').querySelectorAll('tr').forEach(tr => {
+    const inputs = tr.querySelectorAll('input');
+    if (inputs[2]) total += parseInt(inputs[2].value) || 0;
+  });
+  return total || null;
+}
+
+function resetForm() {
+  ['f-brand','f-season','f-style','f-item','f-designer','f-factory','f-memo','f-price'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('f-type').value = '';
+  document.getElementById('f-delivery').value = '';
+  document.getElementById('color-body').innerHTML = '';
+  document.getElementById('fabric-body').innerHTML = '';
+  document.getElementById('trim-body').innerHTML = '';
+  addColorRow(); addFabricRow();
+}
+
+// ─── LOAD DATA ───────────────────────────────────────────────
+async function loadDashboard() {
+  const { data: allOrders } = await db.from('orders').select('*');
+  if (!allOrders) return;
+
+  // 필터 드롭다운 채우기
+  const brandSel = document.getElementById('filter-brand');
+  const seasonSel = document.getElementById('filter-season');
+  const brands = [...new Set(allOrders.map(o => o.brand).filter(Boolean))].sort();
+  const seasons = [...new Set(allOrders.map(o => o.season).filter(Boolean))].sort().reverse();
+
+  const curBrand = brandSel.value;
+  const curSeason = seasonSel.value;
+
+  brandSel.innerHTML = '<option value="">전체 브랜드</option>' + brands.map(b => `<option value="${b}" ${b===curBrand?'selected':''}>${b}</option>`).join('');
+  seasonSel.innerHTML = '<option value="">전체 시즌</option>' + seasons.map(s => `<option value="${s}" ${s===curSeason?'selected':''}>${s}</option>`).join('');
+
+  // 필터 적용
+  let filtered = allOrders;
+  if (curBrand) filtered = filtered.filter(o => o.brand === curBrand);
+  if (curSeason) filtered = filtered.filter(o => o.season === curSeason);
+
+  // 통계
+  document.getElementById('stat-total').innerHTML = `${filtered.length}<span class="stat-unit">건</span>`;
+  const totalQty = filtered.reduce((s, o) => s + (o.total_qty || 0), 0);
+  document.getElementById('stat-qty').innerHTML = `${totalQty.toLocaleString()}<span class="stat-unit">장</span>`;
+  const filteredBrands = [...new Set(filtered.map(o => o.brand).filter(Boolean))];
+  document.getElementById('stat-brands').innerHTML = `${filteredBrands.length}<span class="stat-unit">개</span>`;
+  const filteredSeasons = [...new Set(filtered.map(o => o.season).filter(Boolean))];
+  document.getElementById('stat-season').textContent = filteredSeasons.length === 1 ? filteredSeasons[0] : (curSeason || (filteredSeasons[0] || '—'));
+
+  // 타이틀
+  const title = curBrand ? (curSeason ? `${curBrand} · ${curSeason}` : curBrand) : (curSeason ? curSeason : '전체 오더');
+  document.getElementById('dashboard-title').textContent = title;
+
+  // 최근 5건
+  const recent = [...filtered].sort((a,b) => new Date(b.created_at)-new Date(a.created_at)).slice(0,5);
+  const tbody = document.getElementById('dashboard-orders');
+  if (recent.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">해당 조건의 오더가 없습니다</div></div></td></tr>';
+    return;
+  }
+  tbody.innerHTML = recent.map(o => `
+    <tr class="order-row" onclick="openOrderDetail('${o.id}')">
+      <td><span class="style-num">${o.style_number||'—'}</span></td>
+      <td>${o.brand||'—'}</td>
+      <td>${o.item||'—'}</td>
+      <td><span class="badge badge-accent">${o.season||'—'}</span></td>
+      <td>${o.delivery_date||'—'}</td>
+      <td>${o.total_qty ? o.total_qty.toLocaleString()+'장' : '—'}</td>
+    </tr>`).join('');
+}
+
+function resetFilters() {
+  document.getElementById('filter-brand').value = '';
+  document.getElementById('filter-season').value = '';
+  loadDashboard();
+}
+
+async function loadOrderList() {
+  const { data: allOrders, error } = await db.from('orders').select('*').order('delivery_date', { ascending: true });
+  const tbody = document.getElementById('order-list-body');
+  if (!allOrders) return;
+
+  // 필터 드롭다운 채우기
+  const brands = [...new Set(allOrders.map(o => o.brand).filter(Boolean))].sort();
+  const items = [...new Set(allOrders.map(o => o.item).filter(Boolean))].sort();
+  const seasons = [...new Set(allOrders.map(o => o.season).filter(Boolean))].sort().reverse();
+  const factories = [...new Set(allOrders.map(o => o.factory).filter(Boolean))].sort();
+
+  const curBrand = document.getElementById('ol-filter-brand').value;
+  const curItem = document.getElementById('ol-filter-item').value;
+  const curSeason = document.getElementById('ol-filter-season').value;
+  const curMonth = document.getElementById('ol-filter-month').value;
+  const curFactory = document.getElementById('ol-filter-factory').value;
+
+  document.getElementById('ol-filter-brand').innerHTML = '<option value="">전체 브랜드</option>' +
+    brands.map(b => `<option value="${b}" ${b===curBrand?'selected':''}>${b}</option>`).join('');
+  document.getElementById('ol-filter-item').innerHTML = '<option value="">전체 품명</option>' +
+    items.map(i => `<option value="${i}" ${i===curItem?'selected':''}>${i}</option>`).join('');
+  document.getElementById('ol-filter-season').innerHTML = '<option value="">전체 시즌</option>' +
+    seasons.map(s => `<option value="${s}" ${s===curSeason?'selected':''}>${s}</option>`).join('');
+  document.getElementById('ol-filter-factory').innerHTML = '<option value="">전체 공장</option>' +
+    factories.map(f => `<option value="${f}" ${f===curFactory?'selected':''}>${f}</option>`).join('');
+
+  // 필터 적용
+  let filtered = allOrders;
+  if (curBrand) filtered = filtered.filter(o => o.brand === curBrand);
+  if (curItem) filtered = filtered.filter(o => o.item === curItem);
+  if (curSeason) filtered = filtered.filter(o => o.season === curSeason);
+  if (curMonth) filtered = filtered.filter(o => o.delivery_date && o.delivery_date.substring(5,7) === curMonth);
+  if (curFactory) filtered = filtered.filter(o => o.factory === curFactory);
+
+  // 결과 카운트
+  const countEl = document.getElementById('ol-result-count');
+  if (countEl) {
+    const filters = [curBrand, curItem, curSeason, curMonth ? curMonth+'월' : '', curFactory].filter(Boolean);
+    countEl.textContent = filters.length > 0
+      ? `${filters.join(' · ')} — ${filtered.length}건`
+      : `전체 오더 ${filtered.length}건`;
+  }
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">해당 조건의 오더가 없습니다</div></div></td></tr>';
+    return;
+  }
+
+  // 각 오더의 발주 상태 가져오기
+  const orderIds = filtered.map(o => o.id);
+  const { data: fabrics } = await db.from('order_fabrics').select('order_id, po_status').in('order_id', orderIds);
+  const { data: trims } = await db.from('order_trims').select('order_id, po_status').in('order_id', orderIds);
+
+  function getPoStatus(orderId, items) {
+    const orderItems = (items||[]).filter(i => i.order_id === orderId);
+    if (orderItems.length === 0) return 'none';
+    const done = orderItems.every(i => i.po_status === '발주완료');
+    const some = orderItems.some(i => i.po_status === '발주완료');
+    if (done) return 'done';
+    if (some) return 'partial';
+    return 'none';
+  }
+
+  tbody.innerHTML = filtered.map(o => {
+    const fabStatus = getPoStatus(o.id, fabrics);
+    const trimStatus = getPoStatus(o.id, trims);
+    const fabBadge = fabStatus === 'done' ? '<span class="badge badge-accent">완료</span>' :
+                     fabStatus === 'partial' ? '<span class="badge badge-info">일부</span>' :
+                     '<span style="color:var(--text3);font-size:11px;">미발주</span>';
+    const trimBadge = trimStatus === 'done' ? '<span class="badge badge-accent">완료</span>' :
+                      trimStatus === 'partial' ? '<span class="badge badge-info">일부</span>' :
+                      '<span style="color:var(--text3);font-size:11px;">미발주</span>';
+    return `<tr>
+      <td onclick="openOrderDetail('${o.id}')" style="cursor:pointer;"><span class="style-num">${o.style_number||'—'}</span></td>
+      <td onclick="openOrderDetail('${o.id}')" style="cursor:pointer;">${o.brand||'—'}</td>
+      <td onclick="openOrderDetail('${o.id}')" style="cursor:pointer;">${o.item||'—'}</td>
+      <td onclick="openOrderDetail('${o.id}')" style="cursor:pointer;"><span class="badge badge-accent">${o.season||'—'}</span></td>
+      <td onclick="openOrderDetail('${o.id}')" style="cursor:pointer;">${o.delivery_date||'—'}</td>
+      <td onclick="openOrderDetail('${o.id}')" style="cursor:pointer;">${o.total_qty ? o.total_qty.toLocaleString()+'장' : '—'}</td>
+      <td onclick="openOrderDetail('${o.id}')" style="cursor:pointer;">${o.factory||'—'}</td>
+      <td style="text-align:center;">${fabBadge}</td>
+      <td style="text-align:center;">${trimBadge}</td>
+      <td onclick="openOrderDetail('${o.id}')" style="cursor:pointer;color:var(--text3);font-size:11px;">${new Date(o.created_at).toLocaleDateString('ko-KR')}</td>
+      <td style="text-align:center;">
+        <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); openQuickPO('${o.id}', '${o.style_number||''}', '${o.brand||''}')" style="font-size:11px; padding:4px 8px;">발주</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function resetOrderListFilters() {
+  ['ol-filter-brand','ol-filter-item','ol-filter-season','ol-filter-month','ol-filter-factory'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  loadOrderList();
+}
+
+
+// ─── ORDER DETAIL ────────────────────────────────────────────
+async function openOrderDetail(id) {
+  loading(true, '오더 정보 불러오는 중...');
+  try {
+    const { data: order } = await db.from('orders').select('*').eq('id', id).single();
+    const { data: colors } = await db.from('order_colors').select('*').eq('order_id', id);
+    const { data: fabrics } = await db.from('order_fabrics').select('*').eq('order_id', id);
+    const { data: trims } = await db.from('order_trims').select('*').eq('order_id', id);
+
+    document.getElementById('edit-id').value = order.id;
+    document.getElementById('edit-brand').value = order.brand || '';
+    document.getElementById('edit-season').value = order.season || '';
+    document.getElementById('edit-style').value = order.style_number || '';
+    document.getElementById('edit-item').value = order.item || '';
+    document.getElementById('edit-type').value = order.production_type || '';
+    document.getElementById('edit-delivery').value = order.delivery_date || '';
+    document.getElementById('edit-price').value = order.selling_price || '';
+    document.getElementById('edit-designer').value = order.designer || '';
+    document.getElementById('edit-factory').value = order.factory || '';
+    document.getElementById('edit-memo').value = order.memo || '';
+    document.getElementById('detail-title').textContent = order.style_number + ' · ' + (order.brand || '');
+
+    // colors
+    const cb = document.getElementById('edit-color-body');
+    cb.innerHTML = '';
+    (colors || []).forEach(c => addEditColorRow(c));
+
+    // fabrics
+    const fb = document.getElementById('edit-fabric-body');
+    fb.innerHTML = '';
+    (fabrics || []).forEach(f => addEditFabricRow(f));
+
+    // trims
+    const tb = document.getElementById('edit-trim-body');
+    tb.innerHTML = '';
+    (trims || []).forEach(t => addEditTrimRow(t));
+    // 발주 잠금 배지 표시
+    const hasLocked = (trims || []).some(t => t.po_status === '발주완료');
+    if (hasLocked) {
+      document.getElementById('trim-lock-badge').style.display = 'inline-flex';
+      document.getElementById('trim-edit-btn').style.display = 'inline-flex';
+      document.getElementById('trim-add-btn').style.display = 'none';
+    } else {
+      document.getElementById('trim-lock-badge').style.display = 'none';
+      document.getElementById('trim-edit-btn').style.display = 'none';
+      document.getElementById('trim-add-btn').style.display = 'flex';
+    }
+
+    navigate('order-detail');
+  } catch(e) {
+    toast('오더 정보를 불러오지 못했습니다.', 'error');
+  } finally {
+    loading(false);
+  }
+}
+
+function addEditColorRow(d = {}) {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><input class="table-input" value="${d.color_code||''}" placeholder="GY"></td>
+    <td><input class="table-input" value="${d.color_name||''}" placeholder="GREY"></td>
+    <td><input class="table-input" type="number" value="${d.qty||''}" placeholder="0"></td>
+    <td><span style="cursor:pointer;color:var(--text3);" onclick="this.closest('tr').remove()">✕</span></td>`;
+  document.getElementById('edit-color-body').appendChild(tr);
+}
+
+function addEditFabricRow(d = {}) {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><input class="table-input" value="${d.category||''}" placeholder="겉감"></td>
+    <td><input class="table-input" value="${d.material_code||''}" placeholder="코드"></td>
+    <td><input class="table-input" value="${d.material_name||''}" placeholder="원단명"></td>
+    <td><input class="table-input" value="${d.composition||''}" placeholder="C 100%"></td>
+    <td><input class="table-input" value="${d.supplier||''}" placeholder="공급처"></td>
+    <td><input class="table-input" value="${d.yardage||''}" placeholder="2.16Y"></td>
+    <td><span style="cursor:pointer;color:var(--text3);" onclick="this.closest('tr').remove()">✕</span></td>`;
+  document.getElementById('edit-fabric-body').appendChild(tr);
+}
+
+function addEditTrimRow(d = {}) {
+  const isLocked = d.po_status === '발주완료';
+  const tr = document.createElement('tr');
+  tr.dataset.trimId = d.id || '';
+  tr.dataset.locked = isLocked ? 'true' : 'false';
+  if (isLocked) tr.style.background = 'rgba(74,158,255,0.05)';
+  tr.innerHTML = `
+    <td><input class="table-input" value="${d.trim_code||''}" placeholder="코드" ${isLocked?'readonly style="opacity:0.6"':''}></td>
+    <td><input class="table-input" value="${d.trim_name||''}" placeholder="부자재명" ${isLocked?'readonly style="opacity:0.6"':''}></td>
+    <td><input class="table-input" value="${d.spec||''}" placeholder="규격" ${isLocked?'readonly style="opacity:0.6"':''}></td>
+    <td><input class="table-input" type="number" value="${d.qty||''}" placeholder="0" ${isLocked?'readonly style="opacity:0.6"':''}></td>
+    <td><input class="table-input" value="${d.supplier||''}" placeholder="발주업체" ${isLocked?'readonly style="opacity:0.6"':''}></td>
+    <td><input class="table-input" value="${d.position||''}" placeholder="부위" ${isLocked?'readonly style="opacity:0.6"':''}></td>
+    <td style="text-align:center;">
+      ${isLocked
+        ? `<span class="badge badge-info" style="font-size:10px;">발주완료<br>${d.po_date||''}</span>`
+        : '<span style="color:var(--text3);font-size:11px;">미발주</span>'}
+    </td>
+    <td>${isLocked ? '' : `<span style="cursor:pointer;color:var(--text3);" onclick="this.closest('tr').remove()">✕</span>`}</td>`;
+  document.getElementById('edit-trim-body').appendChild(tr);
+}
+
+function toggleTrimEdit() {
+  const rows = document.querySelectorAll('#edit-trim-body tr[data-locked="true"]');
+  const btn = document.getElementById('trim-edit-btn');
+  const isEditing = btn.dataset.editing === 'true';
+  rows.forEach(tr => {
+    tr.querySelectorAll('input').forEach(inp => {
+      inp.readOnly = isEditing;
+      inp.style.opacity = isEditing ? '0.6' : '1';
+    });
+  });
+  btn.dataset.editing = isEditing ? 'false' : 'true';
+  btn.textContent = isEditing ? '✏️ 수정모드' : '🔒 잠금';
+}
+
+async function saveOrderEdit() {
+  const id = document.getElementById('edit-id').value;
+  loading(true, '저장 중...');
+  try {
+    await db.from('orders').update({
+      brand: document.getElementById('edit-brand').value,
+      season: document.getElementById('edit-season').value,
+      style_number: document.getElementById('edit-style').value,
+      item: document.getElementById('edit-item').value,
+      production_type: document.getElementById('edit-type').value,
+      delivery_date: document.getElementById('edit-delivery').value || null,
+      selling_price: parseInt(document.getElementById('edit-price').value) || null,
+      designer: document.getElementById('edit-designer').value,
+      factory: document.getElementById('edit-factory').value,
+      memo: document.getElementById('edit-memo').value,
+    }).eq('id', id);
+
+    // 컬러 업데이트
+    await db.from('order_colors').delete().eq('order_id', id);
+    const colors = getTableRows('edit-color-body', []);
+    if (colors.length > 0) {
+      await db.from('order_colors').insert(colors.map(r => ({ order_id: id, color_code: r[0], color_name: r[1], qty: parseInt(r[2])||0 })));
+    }
+
+    // 원단 업데이트
+    await db.from('order_fabrics').delete().eq('order_id', id);
+    const fabrics = getTableRows('edit-fabric-body', []);
+    if (fabrics.length > 0) {
+      await db.from('order_fabrics').insert(fabrics.map(r => ({ order_id: id, category: r[0], material_code: r[1], material_name: r[2], composition: r[3], supplier: r[4], yardage: r[5] })));
+    }
+
+    // 부자재 업데이트
+    await db.from('order_trims').delete().eq('order_id', id);
+    const trims = getTableRows('edit-trim-body', []);
+    if (trims.length > 0) {
+      await db.from('order_trims').insert(trims.map(r => ({ order_id: id, trim_code: r[0], trim_name: r[1], spec: r[2], qty: parseFloat(r[3])||0, supplier: r[4], position: r[5] })));
+    }
+
+    toast('저장됐습니다!');
+  } catch(e) {
+    console.error(e);
+    toast('저장 중 오류: ' + e.message, 'error');
+  } finally {
+    loading(false);
+  }
+}
+
+async function deleteOrder() {
+  const id = document.getElementById('edit-id').value;
+  if (!confirm('이 오더를 삭제하시겠습니까?')) return;
+  loading(true, '삭제 중...');
+  try {
+    await db.from('orders').delete().eq('id', id);
+    toast('삭제됐습니다.');
+    navigate('order-list');
+  } catch(e) {
+    toast('삭제 오류: ' + e.message, 'error');
+  } finally {
+    loading(false);
+  }
+}
+
+
+
+// ─── PURCHASE ORDER ──────────────────────────────────────────
+
+// 직원 정보 (나중에 로그인 시스템 연동 예정)
+const EMPLOYEES = [
+  { name: '최현호', tel: '010-9060-0156' },
+];
+
+function onManagerSelect(name) {
+  const emp = EMPLOYEES.find(e => e.name === name);
+  if (emp) {
+    document.getElementById('po-manager-tel').value = emp.tel;
+  }
+}
+
+let poSelectedStyles = [];
+let poAllOrders = [];
+
+async function onPOTypeChange() {
+  const type = document.getElementById('po-type').value;
+  if (!type) return;
+  const { data: orders } = await db.from('orders').select('*, order_trims(*)').order('created_at', { ascending: false });
+  poAllOrders = orders || [];
+
+  // 업체 datalist 채우기
+  const suppliers = [...new Set((orders || []).flatMap(o => (o.order_trims || []).map(t => t.supplier).filter(Boolean)))].sort();
+  document.getElementById('supplier-list').innerHTML = suppliers.map(s => `<option value="${s}">`).join('');
+
+  document.getElementById('po-style-list').innerHTML = `
+    <div style="padding:12px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+      <div style="position:relative; flex:1; min-width:250px;">
+        <input type="text" id="po-style-search" placeholder="스타일번호 또는 브랜드 검색..."
+          style="background:var(--bg3); border:1px solid var(--border2); border-radius:6px; padding:8px 12px; color:var(--text); font-size:13px; outline:none; width:100%;"
+          oninput="filterStyleOptions()" onfocus="showStyleDropdown()" onblur="setTimeout(hideStyleDropdown,200)">
+        <div id="style-dropdown" style="display:none; position:absolute; top:100%; left:0; right:0; background:var(--bg3); border:1px solid var(--border2); border-radius:6px; max-height:200px; overflow-y:auto; z-index:100; margin-top:4px;">
+          ${(orders || []).map(o => `
+            <div class="style-option" data-id="${o.id}" data-text="${o.style_number} - ${o.brand} (${o.season})"
+              style="padding:8px 12px; cursor:pointer; font-size:13px; color:var(--text);"
+              onmousedown="selectStyleOption('${o.id}', '${o.style_number} - ${o.brand} (${o.season})')"
+              onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background=''">
+              <span style="color:var(--accent); font-family:monospace;">${o.style_number}</span>
+              <span style="color:var(--text2); margin-left:8px;">${o.brand}</span>
+              <span style="color:var(--text3); margin-left:4px;">${o.season}</span>
+            </div>`).join('')}
+        </div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="addSelectedStyle()">추가</button>
+    </div>
+    <div id="selected-styles"></div>
+  `;
+  window._poOrders = orders || [];
+}
+
+function showStyleDropdown() {
+  const dd = document.getElementById('style-dropdown');
+  if (dd) dd.style.display = 'block';
+}
+
+function hideStyleDropdown() {
+  const dd = document.getElementById('style-dropdown');
+  if (dd) dd.style.display = 'none';
+}
+
+function filterStyleOptions() {
+  const query = document.getElementById('po-style-search').value.toLowerCase();
+  const options = document.querySelectorAll('.style-option');
+  options.forEach(opt => {
+    const text = opt.dataset.text.toLowerCase();
+    opt.style.display = text.includes(query) ? 'block' : 'none';
+  });
+  showStyleDropdown();
+}
+
+function selectStyleOption(id, text) {
+  document.getElementById('po-style-search').value = text;
+  document.getElementById('po-style-search').dataset.selectedId = id;
+  hideStyleDropdown();
+}
+
+function addSelectedStyle() {
+  const searchInput = document.getElementById('po-style-search');
+  const id = searchInput?.dataset.selectedId;
+  if (!id || poSelectedStyles.find(s => s.id === id)) return;
+  const order = poAllOrders.find(o => o.id === id);
+  if (!order) return;
+  poSelectedStyles.push(order);
+  if (document.getElementById('po-style-search')) {
+    document.getElementById('po-style-search').value = '';
+    document.getElementById('po-style-search').dataset.selectedId = '';
+  }
+  renderSelectedStyles();
+  loadPOItemsFromStyles();
+}
+
+function renderSelectedStyles() {
+  const container = document.getElementById('selected-styles');
+  container.innerHTML = poSelectedStyles.map((o, i) => `
+    <div style="display:flex; align-items:center; gap:8px; padding:8px 12px; background:var(--bg3); margin:4px 12px; border-radius:6px;">
+      <span class="style-num">${o.style_number}</span>
+      <span style="color:var(--text2); font-size:13px;">${o.brand} · ${o.item}</span>
+      <span style="cursor:pointer; color:var(--text3); margin-left:auto;" onclick="removeStyle(${i})">✕</span>
+    </div>
+  `).join('');
+}
+
+function removeStyle(idx) {
+  poSelectedStyles.splice(idx, 1);
+  renderSelectedStyles();
+  loadPOItemsFromStyles();
+}
+
+function loadPOItemsFromStyles() {
+  const type = document.getElementById('po-type').value;
+  const supplier = document.getElementById('po-supplier').value.trim();
+  const tbody = document.getElementById('po-items-body');
+
+  if (poSelectedStyles.length === 0) {
+    document.getElementById('po-items-section').style.display = 'none';
+    tbody.innerHTML = '';
+    return;
+  }
+
+  document.getElementById('po-items-section').style.display = 'block';
+  tbody.innerHTML = '';
+
+  poSelectedStyles.forEach(order => {
+    const trims = (order.order_trims || []).filter(t => !supplier || t.supplier === supplier);
+    const colors = order.colors || [];
+
+    if (type === 'MAIN') {
+      // 메인: 컬러별로 행 분리
+      trims.forEach(trim => {
+        // 컬러별 수량을 가져와야 하므로 order_colors 필요
+        addPOItemRow({
+          style_number: order.style_number,
+          item_name: trim.trim_name,
+          spec: trim.spec,
+          color: '',
+          placement: trim.position,
+          yardage: trim.qty,
+          order_qty: order.total_qty || 0,
+          unit: trim.spec?.includes('YD') || trim.spec?.includes('Y') ? 'YD' : 'EA',
+          supplier: trim.supplier
+        });
+      });
+    } else {
+      // 샘플: 업체별 묶기
+      trims.forEach(trim => {
+        addPOItemRow({
+          style_number: order.style_number,
+          item_name: trim.trim_name,
+          spec: trim.spec,
+          color: '',
+          placement: trim.position,
+          yardage: trim.qty,
+          order_qty: '',
+          po_qty: '',
+          unit: 'EA',
+          supplier: trim.supplier
+        });
+      });
+    }
+  });
+  calcPOTotal();
+}
+
+function addPOItemRow(d = {}) {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><input class="table-input" value="${d.style_number||''}" placeholder="스타일번호" style="width:100px;"></td>
+    <td><input class="table-input" value="${d.item_name||''}" placeholder="부자재명"></td>
+    <td><input class="table-input" value="${d.color||''}" placeholder="색상" style="width:60px;"></td>
+    <td><input class="table-input" value="${d.spec||''}" placeholder="규격" style="width:60px;"></td>
+    <td><input class="table-input" value="${d.placement||''}" placeholder="적용위치"></td>
+    <td><input class="table-input" type="number" value="${d.order_qty||''}" placeholder="오더수량" style="width:70px;" oninput="calcRow(this)"></td>
+    <td><input class="table-input" type="number" value="${d.yardage||''}" placeholder="요척" style="width:60px;" oninput="calcRow(this)"></td>
+    <td><input class="table-input" type="number" value="${d.loss_rate||5}" placeholder="로스%" style="width:55px;" oninput="calcRow(this)"></td>
+    <td><input class="table-input" type="number" value="${d.po_qty||''}" placeholder="발주수량" style="width:70px;" oninput="calcPOTotal()"></td>
+    <td><input class="table-input" value="${d.unit||'EA'}" placeholder="단위" style="width:40px;"></td>
+    <td><input class="table-input" type="number" value="${d.unit_price||''}" placeholder="단가" style="width:70px;" oninput="calcRow(this)"></td>
+    <td class="po-amount" style="color:var(--accent); font-size:12px;">₩0</td>
+    <td><span style="cursor:pointer;color:var(--text3);" onclick="this.closest('tr').remove(); calcPOTotal();">✕</span></td>
+  `;
+  document.getElementById('po-items-body').appendChild(tr);
+}
+
+function addPOItem() {
+  addPOItemRow({});
+}
+
+function calcRow(input) {
+  const tr = input.closest('tr');
+  const inputs = tr.querySelectorAll('input');
+  const orderQty = parseFloat(inputs[5].value) || 0;
+  const yardage = parseFloat(inputs[6].value) || 0;
+  const lossRate = parseFloat(inputs[7].value) || 0;
+  const unitPrice = parseFloat(inputs[10].value) || 0;
+  // 발주수량 자동계산 (오더수량 × 요척 × (1 + 로스율/100))
+  if (orderQty && yardage) {
+    const lossMul = 1 + (lossRate / 100);
+    inputs[8].value = Math.ceil(orderQty * yardage * lossMul);
+  }
+  const poQty = parseFloat(inputs[8].value) || 0;
+  const amount = poQty * unitPrice;
+  tr.querySelector('.po-amount').textContent = amount > 0 ? '₩' + amount.toLocaleString() : '₩0';
+  calcPOTotal();
+}
+
+function calcPOTotal() {
+  let total = 0;
+  document.querySelectorAll('#po-items-body tr').forEach(tr => {
+    const amountEl = tr.querySelector('.po-amount');
+    if (amountEl) {
+      const val = parseInt(amountEl.textContent.replace(/[₩,]/g, '')) || 0;
+      total += val;
+    }
+  });
+  document.getElementById('po-total').textContent = '₩' + total.toLocaleString();
+}
+
+async function savePO() {
+  const type = document.getElementById('po-type').value;
+  const supplier = document.getElementById('po-supplier').value.trim();
+  if (!type) { toast('발주서 구분을 선택해주세요.', 'error'); return; }
+  if (!supplier) { toast('업체명을 입력해주세요.', 'error'); return; }
+  if (poSelectedStyles.length === 0) { toast('스타일을 최소 1개 이상 선택해주세요.', 'error'); return; }
+  const items = document.getElementById('po-items-body').querySelectorAll('tr');
+  if (items.length === 0) { toast('발주 항목이 없습니다.', 'error'); return; }
+
+  loading(true, '저장 중...');
+  try {
+    const { data: po, error } = await db.from('purchase_orders').insert({
+      order_id: poSelectedStyles[0]?.id || null,
+      po_type: type,
+      supplier,
+      po_date: document.getElementById('po-date').value || null,
+      delivery_date: document.getElementById('po-delivery-date').value || null,
+      memo: document.getElementById('po-memo').value,
+      status: '발주중',
+      contact: document.getElementById('po-contact').value || null,
+      fax: document.getElementById('po-fax').value || null,
+      manager_name: document.getElementById('po-manager').value || null,
+      manager_tel: document.getElementById('po-manager-tel').value || null,
+    }).select().single();
+    if (error) throw error;
+
+    const rows = document.getElementById('po-items-body').querySelectorAll('tr');
+    const items = [];
+    rows.forEach(tr => {
+      const inputs = tr.querySelectorAll('input');
+      items.push({
+        po_id: po.id,
+        style_number: inputs[0].value,
+        item_name: inputs[1].value,
+        color: inputs[2].value,
+        spec: inputs[3].value,
+        placement: inputs[4].value,
+        order_qty: parseInt(inputs[5].value) || null,
+        yardage: parseFloat(inputs[6].value) || null,
+        po_qty: parseFloat(inputs[8].value) || null,
+        unit: inputs[9].value,
+        unit_price: parseFloat(inputs[10].value) || null,
+        amount: parseFloat(tr.querySelector('.po-amount').textContent.replace(/[₩,]/g,'')) || null,
+      });
+    });
+
+    if (items.length > 0) await db.from('purchase_order_items').insert(items);
+
+    toast('발주서가 저장됐습니다!');
+    poSelectedStyles = [];
+    setTimeout(() => { navigate('po-list'); }, 800);
+  } catch(e) {
+    toast('저장 오류: ' + e.message, 'error');
+  } finally {
+    loading(false);
+  }
+}
+
+async function loadPOList() {
+  const type = document.getElementById('po-filter-type').value;
+  const supplier = document.getElementById('po-filter-supplier').value;
+  const brand = document.getElementById('po-filter-brand').value;
+  const style = document.getElementById('po-filter-style').value;
+
+  // 전체 데이터 가져오기
+  const { data: allPos } = await db.from('purchase_orders').select('*, purchase_order_items(*)').order('created_at', { ascending: false });
+
+  if (!allPos) return;
+
+  // 필터 드롭다운 채우기
+  const allSuppliers = [...new Set(allPos.map(p => p.supplier).filter(Boolean))].sort();
+  const allBrands = [...new Set(allPos.flatMap(p => (p.purchase_order_items||[]).map(i => i.style_number?.substring(0,1))).filter(Boolean))];
+  const allStyles = [...new Set(allPos.flatMap(p => (p.purchase_order_items||[]).map(i => i.style_number)).filter(Boolean))].sort();
+
+  // 브랜드 코드 → 브랜드명 매핑
+  const brandMap = {'4':'MASTER BUNNY EDITION','5':'PEARLY GATES','1':'PING','2':'FANTOM','8':'St ANDREWS'};
+  const brandNames = [...new Set(allPos.flatMap(p => (p.purchase_order_items||[]).map(i => {
+    const code = i.style_number?.substring(0,1);
+    return code ? (brandMap[code] || code) : null;
+  }).filter(Boolean)))].sort();
+
+  const curSupplier = document.getElementById('po-filter-supplier').value;
+  const curBrand = document.getElementById('po-filter-brand').value;
+  const curStyle = document.getElementById('po-filter-style').value;
+
+  document.getElementById('po-filter-supplier').innerHTML = '<option value="">전체 업체</option>' +
+    allSuppliers.map(s => `<option value="${s}" ${s===curSupplier?'selected':''}>${s}</option>`).join('');
+  document.getElementById('po-filter-brand').innerHTML = '<option value="">전체 브랜드</option>' +
+    brandNames.map(b => `<option value="${b}" ${b===curBrand?'selected':''}>${b}</option>`).join('');
+
+  // 브랜드 선택 시 해당 브랜드 스타일만 표시
+  const filteredStyles = brand
+    ? allStyles.filter(s => {
+        const code = s.substring(0,1);
+        return (brandMap[code] || code) === brand;
+      })
+    : allStyles;
+  document.getElementById('po-filter-style').innerHTML = '<option value="">전체 스타일</option>' +
+    filteredStyles.map(s => `<option value="${s}" ${s===curStyle?'selected':''}>${s}</option>`).join('');
+
+  // 필터 적용
+  let filtered = allPos;
+  if (type) filtered = filtered.filter(p => p.po_type === type);
+  if (supplier) filtered = filtered.filter(p => p.supplier === supplier);
+  if (brand) filtered = filtered.filter(p => (p.purchase_order_items||[]).some(i => {
+    const code = i.style_number?.substring(0,1);
+    return brandMap[code] === brand;
+  }));
+  if (style) filtered = filtered.filter(p => (p.purchase_order_items||[]).some(i => i.style_number === style));
+
+  const tbody = document.getElementById('po-list-body');
+  if (!filtered || filtered.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">발주서가 없습니다</div></div></td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(po => {
+    const total = (po.purchase_order_items || []).reduce((s, i) => s + (i.amount || 0), 0);
+    const styles = [...new Set((po.purchase_order_items || []).map(i => i.style_number).filter(Boolean))];
+    return `<tr class="order-row" onclick="openPODetail('${po.id}')">
+      <td>${po.po_date || '—'}</td>
+      <td><span class="badge ${po.po_type==='SAMPLE'?'badge-info':'badge-accent'}">${po.po_type==='SAMPLE'?'샘플':'메인'}</span></td>
+      <td>${po.supplier}</td>
+      <td style="font-size:12px; color:var(--text2);">${styles.join(', ') || '—'}</td>
+      <td>${po.delivery_date || '—'}</td>
+      <td><span class="badge ${po.status==='입고완료'?'badge-accent':'badge-info'}">${po.status}</span></td>
+      <td style="color:var(--accent);">${total > 0 ? '₩'+total.toLocaleString() : '—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+function resetPOFilters() {
+  document.getElementById('po-filter-type').value = '';
+  document.getElementById('po-filter-brand').value = '';
+  document.getElementById('po-filter-style').value = '';
+  document.getElementById('po-filter-supplier').value = '';
+  loadPOList();
+}
+
+async function openPODetail(id) {
+  loading(true, '불러오는 중...');
+  try {
+    const { data: po } = await db.from('purchase_orders').select('*, purchase_order_items(*)').eq('id', id).single();
+    const items = po.purchase_order_items || [];
+    const total = items.reduce((s, i) => s + (i.amount || 0), 0);
+    const styles = [...new Set(items.map(i => i.style_number).filter(Boolean))];
+
+    document.getElementById('po-detail-title').textContent = `${po.po_type==='SAMPLE'?'샘플':'메인'} 발주서 · ${po.supplier}`;
+    document.getElementById('po-detail-content').dataset.poId = id;
+    document.getElementById('po-detail-content').innerHTML = `
+      <div class="card" style="font-size:13px;">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px; padding-bottom:16px; border-bottom:1px solid var(--border);">
+          <div><span style="color:var(--text3);">업체명</span><br><strong>${po.supplier}</strong></div>
+          <div><span style="color:var(--text3);">구분</span><br><strong>${po.po_type==='SAMPLE'?'샘플 발주서':'메인 발주서'}</strong></div>
+          <div><span style="color:var(--text3);">발주일</span><br>${po.po_date || '—'}</div>
+          <div><span style="color:var(--text3);">납기일</span><br>${po.delivery_date || '—'}</div>
+          <div><span style="color:var(--text3);">스타일</span><br>${styles.join(', ') || '—'}</div>
+          <div><span style="color:var(--text3);">상태</span><br><span class="badge badge-info">${po.status}</span></div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>스타일</th><th>부자재명</th><th>색상</th><th>규격</th><th>적용위치</th><th>오더수량</th><th>요척</th><th>발주수량</th><th>단위</th><th>단가</th><th>금액</th></tr></thead>
+            <tbody>
+              ${items.map(i => `<tr>
+                <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--accent);">${i.style_number||'—'}</td>
+                <td>${i.item_name||'—'}</td>
+                <td>${i.color||'—'}</td>
+                <td>${i.spec||'—'}</td>
+                <td>${i.placement||'—'}</td>
+                <td>${i.order_qty?.toLocaleString()||'—'}</td>
+                <td>${i.yardage||'—'}</td>
+                <td>${i.po_qty?.toLocaleString()||'—'}</td>
+                <td>${i.unit||'—'}</td>
+                <td>${i.unit_price ? '₩'+i.unit_price.toLocaleString() : '—'}</td>
+                <td style="color:var(--accent);">${i.amount ? '₩'+i.amount.toLocaleString() : '—'}</td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+        <div style="text-align:right; padding-top:12px; font-size:15px; font-weight:700; color:var(--accent);">
+          TOTAL: ₩${total.toLocaleString()}
+        </div>
+        ${po.memo ? `<div style="margin-top:12px; color:var(--text2); font-size:12px;">비고: ${po.memo}</div>` : ''}
+      </div>
+    `;
+    navigate('po-detail');
+  } catch(e) {
+    toast('불러오기 오류: ' + e.message, 'error');
+  } finally {
+    loading(false);
+  }
+}
+
+async function deletePO() {
+  if (!confirm('이 발주서를 삭제하시겠습니까?')) return;
+  // id를 제목에서 가져오기 어려우므로 목록으로 이동
+  navigate('po-list');
+}
+
+async function previewPOBeforeSave() {
+  const type = document.getElementById('po-type').value;
+  const supplier = document.getElementById('po-supplier').value.trim();
+  if (!type || !supplier || poSelectedStyles.length === 0) {
+    toast('구분, 업체명, 스타일을 먼저 입력해주세요.', 'error');
+    return;
+  }
+
+  // 현재 폼 데이터로 임시 PO 객체 생성
+  const tempPo = {
+    po_type: type,
+    supplier,
+    po_date: document.getElementById('po-date').value,
+    delivery_date: document.getElementById('po-delivery-date').value,
+    contact: document.getElementById('po-contact').value,
+    fax: document.getElementById('po-fax').value,
+    manager_name: document.getElementById('po-manager').value,
+    manager_tel: document.getElementById('po-manager-tel').value,
+    brand: poSelectedStyles[0]?.brand || '',
+    designer: poSelectedStyles[0]?.designer || '',
+    memo: document.getElementById('po-memo').value,
+    purchase_order_items: []
+  };
+
+  // 현재 테이블 행 읽기
+  document.getElementById('po-items-body').querySelectorAll('tr').forEach(tr => {
+    const inputs = tr.querySelectorAll('input');
+    if (inputs.length < 10) return;
+    tempPo.purchase_order_items.push({
+      style_number: inputs[0].value,
+      item_name: inputs[1].value,
+      color: inputs[2].value,
+      spec: inputs[3].value,
+      placement: inputs[4].value,
+      order_qty: parseInt(inputs[5].value) || null,
+      yardage: parseFloat(inputs[6].value) || null,
+      po_qty: parseFloat(inputs[8].value) || null,
+      unit: inputs[9].value,
+      unit_price: parseFloat(inputs[10].value) || null,
+      amount: parseFloat(tr.querySelector('.po-amount')?.textContent.replace(/[₩,]/g,'')) || null,
+      memo: ''
+    });
+  });
+
+  generatePOPrint(tempPo);
+}
+
+async function printPO() {
+  const detailContent = document.getElementById('po-detail-content');
+  if (!detailContent || !detailContent.dataset.poId) {
+    toast('발주서를 먼저 열어주세요.', 'error');
+    return;
+  }
+  const poId = detailContent.dataset.poId;
+  const { data: po } = await db.from('purchase_orders').select('*, purchase_order_items(*)').eq('id', poId).single();
+  if (!po) return;
+  generatePOPrint(po);
+}
+
+function generatePOPrint(po) {
+  const items = po.purchase_order_items || [];
+  const total = items.reduce((s, i) => s + (i.amount || 0), 0);
+  const styles = [...new Set(items.map(i => i.style_number).filter(Boolean))];
+  const isSample = po.po_type === 'SAMPLE';
+  let html = '';
+
+  if (isSample) {
+    // ── 샘플발주서 양식 ──
+    html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>QC샘플 자재의뢰서</title>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap');
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: 'Noto Sans KR', sans-serif; font-size: 11px; color: #000; padding: 20px; }
+      h2 { font-size: 16px; font-weight: 700; text-align: center; margin-bottom: 12px; }
+      .approval-box { float: right; border: 1px solid #000; margin-bottom: 8px; }
+      .approval-box table { border-collapse: collapse; }
+      .approval-box td { border: 1px solid #000; padding: 4px 10px; text-align: center; font-size: 10px; min-width: 40px; min-height: 40px; }
+      .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border: 1px solid #000; margin-bottom: 12px; }
+      .info-row { display: contents; }
+      .info-label { background: #f0f0f0; padding: 5px 8px; font-weight: 600; border: 1px solid #ccc; font-size: 10px; }
+      .info-value { padding: 5px 8px; border: 1px solid #ccc; font-size: 10px; }
+      table.main { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+      table.main th { background: #d0d0d0; border: 1px solid #000; padding: 5px 6px; text-align: center; font-size: 10px; }
+      table.main td { border: 1px solid #000; padding: 5px 6px; text-align: center; font-size: 10px; }
+      .note { font-size: 10px; margin-top: 8px; }
+      @media print { @page { margin: 15mm; } }
+    </style></head><body>
+    <div style="overflow: hidden;">
+      <div class="approval-box">
+        <table><tr><td>담당</td><td>부장</td><td>사장</td></tr>
+        <tr><td style="height:35px;">${po.manager_name||''}</td><td></td><td></td></tr></table>
+      </div>
+      <h2>QC샘플 자재 의 뢰 서</h2>
+    </div>
+    <div class="info-grid">
+      <div class="info-label">수신처</div><div class="info-value">${po.supplier}</div>
+      <div class="info-label">연락처</div><div class="info-value">${po.contact||''}</div>
+      <div class="info-label">FAX</div><div class="info-value">${po.fax||''}</div>
+      <div class="info-label">브랜드</div><div class="info-value">${items[0]?.style_number?.startsWith('4')?'MASTER BUNNY':''}</div>
+      <div class="info-label">담당자(수신)</div><div class="info-value"></div>
+      <div class="info-label">E-MAIL</div><div class="info-value"></div>
+    </div>
+    <div class="info-grid" style="margin-bottom:12px;">
+      <div class="info-label">입고처</div><div class="info-value">이음에프엔씨</div>
+      <div class="info-label">담당자</div><div class="info-value">${po.manager_name||''}</div>
+      <div class="info-label">TEL</div><div class="info-value">02-6082-2988</div>
+      <div class="info-label">연락처</div><div class="info-value">${po.manager_tel||''}</div>
+      <div class="info-label">FAX</div><div class="info-value">02-6082-2990</div>
+      <div class="info-label">E-MAIL</div><div class="info-value"></div>
+    </div>
+    <table class="main">
+      <thead><tr>
+        <th>스타일넘버</th><th>품명</th><th>색상</th><th>부자재 색상</th><th>사이즈</th><th>수량</th><th>비고</th>
+      </tr></thead>
+      <tbody>
+        ${items.map(i => `<tr>
+          <td>${i.style_number||''}</td>
+          <td style="text-align:left;">${i.item_name||''}</td>
+          <td>${i.color||''}</td>
+          <td>${i.spec||''}</td>
+          <td></td>
+          <td>${i.po_qty||''} ${i.unit||'EA'}</td>
+          <td style="text-align:left;">${i.memo||''}</td>
+        </tr>`).join('')}
+        <tr><td colspan="5" style="font-weight:700;">TOTAL</td><td colspan="2"></td></tr>
+      </tbody>
+    </table>
+    <div class="note">1) 입고처 : 이음에프엔씨<br>서울 중구 장충단로6가길 15-5 대명빌딩 2층</div>
+    <script>window.onload=function(){window.print()}<\/script></body></html>`;
+
+  } else {
+    // ── 메인발주서 양식 ──
+    const styleInfo = poSelectedStyles[0] || {};
+    html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>발주서</title>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap');
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: 'Noto Sans KR', sans-serif; font-size: 11px; color: #000; padding: 20px; }
+      .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+      .title-box { text-align: center; flex: 1; }
+      .title-box h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+      .company-info { font-size: 10px; color: #333; }
+      .approval { border: 1px solid #000; }
+      .approval table { border-collapse: collapse; }
+      .approval td { border: 1px solid #000; padding: 3px 8px; text-align: center; font-size: 10px; min-width: 40px; }
+      .approval .sign-row td { height: 35px; }
+      .info-section { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-bottom: 8px; font-size: 10px; }
+      .info-left, .info-right { border: 1px solid #ccc; padding: 6px 8px; }
+      .info-left p, .info-right p { margin-bottom: 2px; }
+      .label { color: #666; }
+      table.items { width: 100%; border-collapse: collapse; margin-bottom: 8px; font-size: 10px; }
+      table.items th { background: #1a1a6e; color: #fff; border: 1px solid #000; padding: 4px 5px; text-align: center; }
+      table.items td { border: 1px solid #ccc; padding: 4px 5px; text-align: center; }
+      .total-row td { font-weight: 700; background: #f5f5f5; }
+      .notes { font-size: 9px; color: #333; margin-bottom: 12px; }
+      .notes p { margin-bottom: 2px; }
+      .footer { display: flex; justify-content: space-between; align-items: center; font-size: 10px; margin-top: 8px; }
+      @media print { @page { margin: 12mm; } }
+    </style></head><body>
+
+    <div style="text-align:right; font-size:10px; margin-bottom:4px;">
+      발주년월일 : ${po.po_date ? new Date(po.po_date).toLocaleDateString('ko-KR').replace(/\. /g,' . ').replace('.','. ') : ''}
+    </div>
+
+    <div class="header">
+      <div style="flex:1;">
+        <div style="font-size:11px; font-weight:600;">서울시 중구 장충단로 6가길 15-5, 대명빌딩 101호</div>
+        <div style="font-size:14px; font-weight:700;">(주)이음에프엔씨</div>
+        <div style="font-size:10px;">담당자 : ${po.manager_name||''} &nbsp;&nbsp; 연락처 : ${po.manager_tel||''} &nbsp;&nbsp; 납기년월일 : ${po.delivery_date||''}</div>
+      </div>
+      <div class="title-box" style="flex:1;">
+        <h1>발 주 서</h1>
+      </div>
+      <div class="approval" style="flex:0;">
+        <table>
+          <tr><td></td><td>결<br>재</td><td>담당</td><td>부장/차장</td><td>대표이사</td></tr>
+          <tr class="sign-row"><td></td><td></td><td>${po.manager_name||''}</td><td></td><td></td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="info-section">
+      <div class="info-left">
+        <p><span class="label">거래처 : </span><strong>${po.supplier}</strong> &nbsp;&nbsp; <span class="label">연락처 : </span>${po.contact||''} &nbsp;&nbsp; <span class="label">FAX : </span>${po.fax||''}</p>
+      </div>
+      <div class="info-right">
+        <p><span class="label">스타일번호 </span><strong>${styles.join(', ')}</strong> &nbsp;&nbsp; <span class="label">브랜드 </span><strong>${po.brand||''}</strong> &nbsp;&nbsp; <span class="label">디자이너 </span>${po.designer||''}</p>
+      </div>
+    </div>
+
+    <table class="items">
+      <thead><tr>
+        <th>컬러</th><th>오더<br>수량</th><th>메인 품명</th><th>규격(폭)</th><th>자재컬러</th><th>발주량</th><th>적용위치</th><th>요척</th><th>단위</th><th>단가</th><th>금액</th><th>비고</th>
+      </tr></thead>
+      <tbody>
+        ${items.map(i => `<tr>
+          <td>${i.color||''}</td>
+          <td>${i.order_qty?.toLocaleString()||''}</td>
+          <td style="text-align:left;">${i.item_name||''}</td>
+          <td>${i.spec||''}</td>
+          <td>${i.color||''}</td>
+          <td>${i.po_qty?.toLocaleString()||''}</td>
+          <td style="text-align:left;">${i.placement||''}</td>
+          <td>${i.yardage||''}</td>
+          <td>${i.unit||'EA'}</td>
+          <td>${i.unit_price ? '₩'+i.unit_price.toLocaleString() : ''}</td>
+          <td>${i.amount ? '₩'+i.amount.toLocaleString() : ''}</td>
+          <td style="text-align:left;">${i.memo||''}</td>
+        </tr>`).join('')}
+        <tr class="total-row">
+          <td colspan="5" style="text-align:right;">TOTAL</td>
+          <td>${items.reduce((s,i)=>s+(i.po_qty||0),0).toLocaleString()}</td>
+          <td colspan="4"></td>
+          <td>₩${total.toLocaleString()}</td>
+          <td></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="notes">
+      <p>1. 모든 업체 기본 결제 조건은 마감 후 4개월입니다.</p>
+      <p>2. 발주서에 기재된 납기 엄수 바라며, 단가/퀄리티/수량 이상유무 확인 바랍니다.</p>
+      <p>3. 납기일보다 빠른 입고는 불가하며, 빠른 입고 시 마감은 이월될 수 있습니다.</p>
+      <p>4. 입고 시 거래명세표(발주수량+단가), 패킹리스트 필수 첨부입니다.</p>
+      <p>5. 쉬핑 샘플은 필수 별도 부착 및 발송해 주셔야 합니다.</p>
+    </div>
+
+    <div class="footer">
+      <span>${new Date().toLocaleDateString('ko-KR')}</span>
+      <span style="font-weight:700;">(주)이음에프엔씨</span>
+    </div>
+    <script>window.onload=function(){window.print()}<\/script></body></html>`;
+  }
+
+  const win = window.open('', '_blank');
+  win.document.write(html);
+  win.document.close();
+}
+
+
+
+// ─── 빠른 발주 ───────────────────────────────────────────────
+let _quickPOOrderId = null;
+
+async function openQuickPO(orderId, styleNum, brand) {
+  _quickPOOrderId = orderId;
+  document.getElementById('quick-po-title').textContent = `빠른 발주 — ${styleNum}`;
+  document.getElementById('quick-po-supplier').value = '';
+
+  // 부자재 목록 로드
+  const { data: trims } = await db.from('order_trims').select('*').eq('order_id', orderId);
+  const { data: fabrics } = await db.from('order_fabrics').select('*').eq('order_id', orderId);
+
+  const container = document.getElementById('quick-po-items');
+  const allItems = [
+    ...(fabrics||[]).map(f => ({...f, _type:'fabric', _label:`[원단] ${f.material_name||f.material_code||'—'} (${f.supplier||'—'})`})),
+    ...(trims||[]).map(t => ({...t, _type:'trim', _label:`[부자재] ${t.trim_name||'—'} (${t.supplier||'—'})`}))
+  ];
+
+  if (allItems.length === 0) {
+    container.innerHTML = '<div style="color:var(--text3); font-size:13px; padding:8px;">등록된 원부자재가 없습니다.</div>';
+  } else {
+    container.innerHTML = allItems.map(item => `
+      <label style="display:flex; align-items:center; gap:8px; padding:8px; border-radius:6px; cursor:pointer; ${item.po_status==='발주완료'?'opacity:0.5;':''}" 
+             onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">
+        <input type="checkbox" value="${item.id}" data-type="${item._type}" ${item.po_status==='발주완료'?'disabled checked':''}>
+        <span style="font-size:13px; flex:1;">${item._label}</span>
+        ${item.po_status==='발주완료' 
+          ? `<span class="badge badge-info" style="font-size:10px;">발주완료 ${item.po_date||''}</span>`
+          : ''}
+      </label>
+    `).join('');
+  }
+
+  document.getElementById('quick-po-modal').style.display = 'flex';
+}
+
+function closeQuickPO() {
+  document.getElementById('quick-po-modal').style.display = 'none';
+  _quickPOOrderId = null;
+}
+
+async function submitQuickPO() {
+  const type = document.getElementById('quick-po-type').value;
+  const supplier = document.getElementById('quick-po-supplier').value.trim();
+  if (!supplier) { toast('업체명을 입력해주세요.', 'error'); return; }
+
+  const checked = document.querySelectorAll('#quick-po-items input[type="checkbox"]:checked:not([disabled])');
+  if (checked.length === 0) { toast('발주할 항목을 선택해주세요.', 'error'); return; }
+
+  loading(true, '발주 저장 중...');
+  try {
+    // 발주서 생성
+    const { data: order } = await db.from('orders').select('*').eq('id', _quickPOOrderId).single();
+    const { data: po, error: poErr } = await db.from('purchase_orders').insert({
+      order_id: _quickPOOrderId,
+      po_type: type,
+      supplier,
+      po_date: new Date().toISOString().split('T')[0],
+      status: '발주중',
+      manager_name: '',
+    }).select().single();
+    if (poErr) throw poErr;
+
+    // 선택된 항목 발주완료 처리
+    const today = new Date().toISOString().split('T')[0];
+    for (const cb of checked) {
+      const id = cb.value;
+      const itemType = cb.dataset.type;
+      if (itemType === 'fabric') {
+        await db.from('order_fabrics').update({ po_status: '발주완료', po_date: today, po_id: po.id }).eq('id', id);
+      } else {
+        await db.from('order_trims').update({ po_status: '발주완료', po_date: today, po_id: po.id }).eq('id', id);
+      }
+    }
+
+    toast(`발주서가 생성됐습니다! (${supplier})`);
+    closeQuickPO();
+    loadOrderList();
+  } catch(e) {
+    toast('발주 오류: ' + e.message, 'error');
+  } finally {
+    loading(false);
+  }
+}
+
+
+
+// ─── API KEY (세션 메모리에만 저장, 소스에 노출 안됨) ──────────
+let _apiKey = '';
+function getApiKey() {
+  if (!_apiKey) {
+    const k = prompt('Anthropic API Key를 입력해주세요 (PDF 추출에 필요):\nsk-ant-...');
+    if (k) _apiKey = k.trim();
+  }
+  return _apiKey;
+}
+
+// ─── AUTH ────────────────────────────────────────────────────
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pw = document.getElementById('login-pw').value;
+  const errEl = document.getElementById('login-err');
+  errEl.textContent = '';
+  if (!email || !pw) { errEl.textContent = '이메일과 비밀번호를 입력해주세요.'; return; }
+  const btn = document.querySelector('.login-btn');
+  btn.textContent = '로그인 중...'; btn.disabled = true;
+  const { data, error } = await db.auth.signInWithPassword({ email, password: pw });
+  btn.textContent = '로그인'; btn.disabled = false;
+  if (error) {
+    errEl.textContent = '이메일 또는 비밀번호가 올바르지 않습니다.';
+    return;
+  }
+  showApp(data.user);
+}
+
+async function doLogout() {
+  if (!confirm('로그아웃 하시겠습니까?')) return;
+  await db.auth.signOut();
+  document.getElementById('login-screen').classList.add('active');
+  document.getElementById('user-badge').style.display = 'none';
+}
+
+function showApp(user) {
+  document.getElementById('login-screen').classList.remove('active');
+  document.getElementById('user-email-display').textContent = user.email;
+  document.getElementById('user-badge').style.display = 'flex';
+  loadDashboard();
+}
+
+async function initAuth() {
+  const { data: { session } } = await db.auth.getSession();
+  if (session) {
+    showApp(session.user);
+  } else {
+    document.getElementById('login-screen').classList.add('active');
+    document.getElementById('user-badge').style.display = 'none';
+  }
+}
+
+// ─── INIT ────────────────────────────────────────────────────
+initAuth();
+</script>
+</body>
+</html>
