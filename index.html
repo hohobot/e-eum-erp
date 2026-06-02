@@ -476,9 +476,11 @@
   input[type="date"]::-webkit-calendar-picker-indicator,
   input[type="time"]::-webkit-calendar-picker-indicator,
   input[type="datetime-local"]::-webkit-calendar-picker-indicator {
-    filter: invert(1) brightness(3);
-    opacity: 1;
+    filter: brightness(0) invert(1);
+    opacity: 0.8;
     cursor: pointer;
+    width: 16px;
+    height: 16px;
   }
   input[type="date"]::-webkit-inner-spin-button {
     display: none;
@@ -654,7 +656,11 @@
 
         <!-- UPLOAD ZONE -->
         <div id="upload-section">
-          <div class="upload-zone" onclick="document.getElementById('file-input').click()">
+          <div class="upload-zone" id="upload-zone"
+            onclick="document.getElementById('file-input').click()"
+            ondragover="event.preventDefault(); this.style.borderColor='var(--accent)'; this.style.background='rgba(200,245,66,0.05)'"
+            ondragleave="this.style.borderColor=''; this.style.background=''"
+            ondrop="event.preventDefault(); this.style.borderColor=''; this.style.background=''; handleDropFile(event)">
             <div class="upload-icon">📄</div>
             <div class="upload-text">작업지시서 PDF를 업로드하세요</div>
             <div class="upload-sub">클릭하거나 파일을 드래그하세요</div>
@@ -1240,9 +1246,22 @@ function loading(show, text = '처리 중...') {
 // ─── FILE UPLOAD & AI EXTRACT ────────────────────────────────
 let currentFile = null;
 
+function handleDropFile(event) {
+  const file = event.dataTransfer?.files?.[0];
+  if (!file) return;
+  if (!file.name.toLowerCase().endsWith('.pdf')) {
+    toast('PDF 파일만 업로드 가능합니다.', 'error');
+    return;
+  }
+  processUploadedFile(file);
+}
+
 function handleFile(input) {
   const file = input.files[0];
   if (!file) return;
+  processUploadedFile(file);
+}
+function processUploadedFile(file) {
   currentFile = file;
   document.getElementById('file-name').textContent = file.name;
   document.getElementById('file-preview').style.display = 'flex';
@@ -1568,48 +1587,58 @@ function getTrimCategory(t) {
   const spec = (t.spec || '').toLowerCase();
   const pos = (t.position || '').toLowerCase();
   const supplier = (t.supplier || '').toLowerCase();
+  const all = name + ' ' + spec + ' ' + pos;
 
-  // 주머니감: 186TC, 트리코트, 마이크로, 브러쉬, 안감류 (부위에 주머니 포함)
-  if (/주머니/.test(pos) || /186tc|트리코트|마이크로브러쉬|microbrush|안감/.test(name + spec)) return 1;
+  // 1. 주머니감: 186TC, 트리코트, 마이크로브러쉬 또는 부위에 주머니
+  if (/주머니/.test(pos) || /186tc|트리코트|마이크로브러쉬|microbrush/.test(all)) return 1;
 
-  // 심지: 영일/필코/조원/조아 업체 또는 심지 키워드
-  if (/심지|interlining|fusing|접착|yi-|yw-|pz|kw/.test(name + spec) ||
+  // 2. 심지: 영일/필코/조원/조아 업체 또는 심지 키워드 (주머니감 제외)
+  if (/심지|interlining|fusing|접착|yi-\d|pz\d|kw\d|mmf|mhf/.test(all) ||
       /영일|필코|조원|조아/.test(supplier)) return 2;
 
-  // 지퍼: 지퍼, zipper, ykk, 에프론
-  if (/지퍼|zipper|ykk|에프론|zp/.test(name + spec)) return 3;
+  // 3. 지퍼: 지퍼, zipper, ykk, 에프론
+  if (/지퍼|zipper|ykk|에프론|zp|mizp/.test(all)) return 3;
 
-  // 스냅/마이깡/캔톤: 오비 잠금류
-  if (/스냅|마이깡|캔톤|켄톤|snap|hook|캔튼/.test(name + spec)) return 4;
+  // 4. 스냅/마이깡/캔톤: 오비 잠금류
+  if (/스냅|마이깡|캔톤|켄톤|snap|캔튼|로고마이깡|스냅마이/.test(all)) return 4;
 
-  // 밴드: 이밴드, 울밴드, 해링본
-  if (/밴드|band|헤링본|해링본|테이프류/.test(name + spec) && !/심지|fusing/.test(name)) return 5;
+  // 5. 단추/썬그립/스토퍼
+  if (/단추|썬그립|스토퍼|button|stopper|sun.*grip|끈고리|코드스토/.test(all)) return 5;
 
-  // 봉사: 봉사, 사, cone, thread
-  if (/봉사|코아사|오바사|thread|cone|45s|60s/.test(name + spec)) return 6;
+  // 6. 밴드: 이밴드, 울밴드, 해링본테이프, 헤링본
+  if (/이밴드|울밴드|해링본|헤링본|자가드.*밴드|밴드.*테이프|herringbone|sic-eb/.test(all)) return 6;
 
-  // 아트웍: 프린트, 자수, 전사, 엠보, 와펜, 폼엠보, 로고
-  if (/프린트|자수|전사|엠보|와펜|artwork|art work|폼엠보|로고프린트|워싱|wap/.test(name + spec)) return 7;
+  // 7. 시보리/RIB: 시보리, rib, 코트나, 스판
+  if (/시보리|rib|코트나|폴리코트나|스판립|시보/.test(all)) return 7;
 
-  // 메인라벨
-  if (/메인라벨|main.*label|주라벨/.test(name + spec)) return 8;
+  // 8. 스트링/끈류
+  if (/스트링|string|끈|cord(?!uroy)/.test(all)) return 8;
 
-  // 사이즈라벨
-  if (/사이즈라벨|size.*label|호칭.*라벨/.test(name + spec)) return 9;
+  // 9. 봉사
+  if (/봉사|코아사|오바사|thread|cone|45s|60s|mny|moy/.test(all)) return 9;
 
-  // 케어라벨
-  if (/케어라벨|care.*label|세탁라벨/.test(name + spec)) return 10;
+  // 10. 아트웍: 프린트, 자수, 전사, 엠보, 와펜, 폼엠보
+  if (/프린트|자수|전사|엠보|와펜|artwork|art.?work|폼엠보|로고프린트|wap|mow/.test(all)) return 10;
 
-  // 가격택
-  if (/가격택|price.*tag|가격tag/.test(name + spec)) return 11;
+  // 11. 메인라벨
+  if (/메인라벨|main.*label|mainlabel|mjl/.test(all)) return 11;
 
-  // 기타 라벨/택류/택고리
-  if (/라벨|택|label|tag|tag.*pin|택고리|tag.*고리/.test(name + spec)) return 12;
+  // 12. 사이즈라벨/호칭라벨
+  if (/사이즈.*라벨|size.*label|호칭.*라벨|사이즈라벨/.test(all)) return 12;
 
-  // 폴리백/박스/포장
-  if (/폴리백|poly.*bag|박스|box|포장/.test(name + spec)) return 13;
+  // 13. 케어라벨
+  if (/케어라벨|care.*label|세탁라벨|mlt/.test(all)) return 13;
 
-  // 나머지
+  // 14. 가격택
+  if (/가격택|price.*tag/.test(all)) return 14;
+
+  // 15. 기타 라벨/택류/택고리/단독세탁/품질보증
+  if (/라벨|택고리|tag.*pin|품질보증|단독세탁|wash.*tag|wash.*label|세탁택/.test(all)) return 15;
+
+  // 16. 폴리백/박스/포장재/방습제/RFID
+  if (/폴리백|poly.*bag|박스|방습제|rfid|포장|mhx|mfp|mol/.test(all)) return 16;
+
+  // 나머지 (완성자재, 기타)
   return 99;
 }
 
