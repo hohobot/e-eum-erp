@@ -880,6 +880,27 @@
           <button class="btn btn-danger btn-sm" onclick="deleteOrder()">🗑 삭제</button>
         </div>
 
+        <!-- 작업지시서 파일 카드 -->
+        <div class="card" id="wo-files-card">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+            <div class="card-title" style="margin-bottom:0;">작업지시서</div>
+            <div style="display:flex; gap:8px;">
+              <select id="wo-file-type" style="background:var(--bg3); border:1px solid var(--border2); border-radius:6px; padding:6px 10px; color:var(--text); font-size:12px; outline:none;">
+                <option value="사전">사전 작업지시서</option>
+                <option value="APP">APP 작업지시서</option>
+                <option value="PP후">PP후 작업지시서</option>
+              </select>
+              <label class="btn btn-ghost btn-sm" style="cursor:pointer; font-size:12px;">
+                📎 업로드
+                <input type="file" accept=".pdf" style="display:none;" onchange="uploadWorkOrderFile(this)">
+              </label>
+            </div>
+          </div>
+          <div id="wo-files-list" style="display:flex; flex-direction:column; gap:8px; min-height:32px;">
+            <div style="color:var(--text3); font-size:12px; padding:8px 0;">등록된 작업지시서가 없습니다.</div>
+          </div>
+        </div>
+
         <div class="card">
           <div class="card-title">기본 정보</div>
           <input type="hidden" id="edit-id">
@@ -1799,6 +1820,7 @@ function resetOrderListFilters() {
 async function openOrderDetail(id) {
   loading(true, '오더 정보 불러오는 중...');
   document.getElementById('page-order-detail').dataset.orderId = id;
+  loadWorkOrderFiles(id);
   try {
     const { data: order } = await db.from('orders').select('*').eq('id', id).single();
     const { data: colors } = await db.from('order_colors').select('*').eq('order_id', id);
@@ -3087,6 +3109,82 @@ async function downloadMaterialList() {
   } catch(e) {
     console.error(e);
     toast('다운로드 오류: ' + e.message, 'error');
+  } finally {
+    loading(false);
+  }
+}
+
+
+// ─── 작업지시서 파일 관리 ─────────────────────────────────────
+async function loadWorkOrderFiles(orderId) {
+  const list = document.getElementById('wo-files-list');
+  if (!list) return;
+  const { data, error } = await db.from('work_order_files')
+    .select('*').eq('order_id', orderId).order('uploaded_at', { ascending: true });
+  if (!data || data.length === 0) {
+    list.innerHTML = '<div style="color:var(--text3); font-size:12px; padding:8px 0;">등록된 작업지시서가 없습니다.</div>';
+    return;
+  }
+  const typeColor = { '사전': 'var(--accent)', 'APP': 'var(--info)', 'PP후': 'var(--success)' };
+  list.innerHTML = data.map(f => `
+    <div style="display:flex; align-items:center; gap:10px; padding:8px 12px; background:var(--bg3); border-radius:6px; border:1px solid var(--border);">
+      <span style="font-size:10px; padding:2px 8px; border-radius:3px; background:${typeColor[f.file_type]||'var(--border2)'}; color:#fff; white-space:nowrap; font-weight:500;">${f.file_type}</span>
+      <span style="flex:1; font-size:13px; color:var(--text1); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${f.file_name}</span>
+      <span style="font-size:11px; color:var(--text3); white-space:nowrap;">${new Date(f.uploaded_at).toLocaleDateString('ko-KR')}</span>
+      <button class="btn btn-ghost btn-sm" onclick="viewWorkOrderFile('${f.file_path}', '${f.file_name}')" style="font-size:11px; white-space:nowrap;">👁 보기</button>
+      <button class="btn btn-ghost btn-sm" onclick="deleteWorkOrderFile('${f.id}', '${f.file_path}')" style="font-size:11px; color:var(--danger); white-space:nowrap;">✕</button>
+    </div>`).join('');
+}
+
+async function uploadWorkOrderFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const orderId = document.getElementById('page-order-detail').dataset.orderId;
+  if (!orderId) { toast('오더 정보를 찾을 수 없습니다.', 'error'); return; }
+  const fileType = document.getElementById('wo-file-type').value;
+  const filePath = `${orderId}/${fileType}_${Date.now()}_${file.name}`;
+  loading(true, '파일 업로드 중...');
+  try {
+    const { error: uploadError } = await db.storage.from('work-orders').upload(filePath, file);
+    if (uploadError) throw uploadError;
+    const { error: dbError } = await db.from('work_order_files').insert({
+      order_id: orderId, file_type: fileType, file_name: file.name, file_path: filePath
+    });
+    if (dbError) throw dbError;
+    toast(`${fileType} 작업지시서 업로드 완료!`);
+    loadWorkOrderFiles(orderId);
+  } catch(e) {
+    toast('업로드 오류: ' + e.message, 'error');
+  } finally {
+    loading(false);
+    input.value = '';
+  }
+}
+
+async function viewWorkOrderFile(filePath, fileName) {
+  loading(true, 'PDF 불러오는 중...');
+  try {
+    const { data, error } = await db.storage.from('work-orders').createSignedUrl(filePath, 300);
+    if (error) throw error;
+    window.open(data.signedUrl, '_blank');
+  } catch(e) {
+    toast('파일 열기 오류: ' + e.message, 'error');
+  } finally {
+    loading(false);
+  }
+}
+
+async function deleteWorkOrderFile(fileId, filePath) {
+  if (!confirm('이 작업지시서를 삭제하시겠습니까?')) return;
+  loading(true, '삭제 중...');
+  try {
+    await db.storage.from('work-orders').remove([filePath]);
+    await db.from('work_order_files').delete().eq('id', fileId);
+    const orderId = document.getElementById('page-order-detail').dataset.orderId;
+    toast('삭제됐습니다.');
+    loadWorkOrderFiles(orderId);
+  } catch(e) {
+    toast('삭제 오류: ' + e.message, 'error');
   } finally {
     loading(false);
   }
