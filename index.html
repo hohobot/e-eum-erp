@@ -2767,7 +2767,7 @@ async function downloadMaterialList() {
 
     // ── 행11~12: BRAND/BUYER 헤더 ──
     const brandName = `${order.brand||''} / E-EUM`;
-    ws_data.push(['BRAND/BUYER','STYLE NO','','','ITEM/HS CODE','','','','','','','Q'TY','','FACTORY','','','']);
+    ws_data.push(['BRAND/BUYER','STYLE NO','','','ITEM/HS CODE','','','','','','',"Q'TY",'','FACTORY','','','']);
     ws_data.push([brandName, order.style_number||'','','',`${order.season||''} ${order.item||''}`,
       '','','','','','',`${totalQty}pcs`,'','VIETNAM','','','']);
     const bRow = ws_data.length - 2;
@@ -2781,9 +2781,7 @@ async function downloadMaterialList() {
 
     // ── 행13~14: 컬럼 헤더 (2행 병합) ──
     const hRow = ws_data.length;
-    ws_data.push(['DESCRIPTION','Placement','ITEM','업체','WIDTH
-(SPEC)','COLOR','ORDER
-Q'TY','CONS','LOSS(3%)','NEEDED','PRICE','ACTUAL','','TTL','REMARK','','']);
+    ws_data.push(["DESCRIPTION","Placement","ITEM","업체","WIDTH\n(SPEC)","COLOR","ORDER\nQ'TY","CONS","LOSS(3%)","NEEDED","PRICE","ACTUAL","","TTL","REMARK","",""]);
     ws_data.push(['','','','','','','','','','','','','','','','','']);
     merges.push(
       {s:{r:hRow,c:0},e:{r:hRow+1,c:0}}, {s:{r:hRow,c:1},e:{r:hRow+1,c:1}},
