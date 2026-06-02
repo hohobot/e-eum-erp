@@ -786,6 +786,7 @@
                   <th>코드</th>
                   <th>부자재명</th>
                   <th>규격</th>
+                  <th>자재색상</th>
                   <th>요척</th>
                   <th>발주업체</th>
                   <th>부위</th>
@@ -935,7 +936,7 @@
             </div>
           </div>
           <table>
-            <thead><tr><th>코드</th><th>부자재명</th><th>규격</th><th>요척</th><th>발주업체</th><th>부위</th><th>발주상태</th><th width="40"></th></tr></thead>
+            <thead><tr><th>코드</th><th>부자재명</th><th>규격</th><th>자재색상</th><th>요척</th><th>발주업체</th><th>부위</th><th>발주상태</th><th width="40"></th></tr></thead>
             <tbody id="edit-trim-body"></tbody>
           </table>
           <div class="add-row-btn" id="trim-add-btn" onclick="addEditTrimRow()">＋ 부자재 추가</div>
@@ -1332,21 +1333,38 @@ function addColorRow(d = {}) {
     const panelTr = document.createElement('tr');
     panelTr.className = 'size-panel';
     panelTr.innerHTML = `
-      <td colspan="5" style="padding:12px; background:var(--bg3); border:1px solid var(--border);">
-        <div style="font-size:11px; color:var(--text3); margin-bottom:8px;">${d.color_name||'컬러'} — 사이즈별 수량</div>
-        <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:8px;">
-          <input placeholder="사이즈 추가 (예: 78, M, XL)" class="table-input" style="width:180px; font-size:12px;"
-            onkeydown="if(event.key==='Enter'){addSizeCol(this); event.preventDefault();}">
-          <button type="button" class="btn btn-ghost btn-sm" onclick="addSizeCol(this.previousElementSibling)" style="font-size:11px;">추가</button>
+      <td colspan="5" style="padding:12px 16px; background:var(--bg3); border:1px solid var(--border);">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+          <span style="font-size:12px; font-weight:500; color:var(--text2);">${d.color_name||'컬러'} — 사이즈별 수량</span>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <input placeholder="사이즈 (예: 78, M)" class="table-input" style="width:120px; font-size:11px; padding:4px 8px;"
+              onkeydown="if(event.key==='Enter'){addSizeCol(this); event.preventDefault();}">
+            <button type="button" class="btn btn-ghost btn-sm" onclick="addSizeCol(this.previousElementSibling)" style="font-size:11px;">+ 추가</button>
+          </div>
         </div>
-        <div class="size-cols" style="display:flex; gap:8px; flex-wrap:wrap;">
-          ${sizeList.map(s => `
-            <div style="display:flex; flex-direction:column; align-items:center; gap:4px;">
-              <span style="font-size:10px; color:var(--text3);">${s}</span>
-              <input class="table-input size-qty" data-size="${s}" type="number" value="${sizes[s]||''}" placeholder="0" style="width:52px; text-align:center;" oninput="updateSizeTotal(this)">
-              <span style="cursor:pointer; font-size:10px; color:var(--text3);" onclick="removeSizeCol(this)">✕</span>
-            </div>`).join('')}
+        <div style="overflow-x:auto;">
+          <table style="border-collapse:collapse; font-size:12px; width:100%;">
+            <thead>
+              <tr style="background:var(--bg2);">
+                ${sizeList.map(s => `<th style="padding:6px 12px; border:1px solid var(--border); text-align:center; color:var(--text3); font-weight:500; min-width:60px;">${s}</th>`).join('')}
+                <th style="padding:6px 12px; border:1px solid var(--border); text-align:center; color:var(--accent); font-weight:600; min-width:60px;">합계</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                ${sizeList.map(s => `
+                  <td style="padding:4px; border:1px solid var(--border); text-align:center;">
+                    <input class="table-input size-qty" data-size="${s}" type="number" value="${sizes[s]||''}" placeholder="0"
+                      style="width:100%; text-align:center; border:none; background:transparent; padding:4px;" oninput="updateSizeTotal(this)">
+                  </td>`).join('')}
+                <td style="padding:6px 12px; border:1px solid var(--border); text-align:center; color:var(--accent); font-weight:600;" class="size-sum">
+                  ${sizeList.reduce((s,k) => s+(sizes[k]||0), 0)||''}
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
+        <div class="size-cols" style="display:none;"></div>
       </td>`;
     document.getElementById('color-body').appendChild(panelTr);
     const btn = tr.querySelector('button');
@@ -1372,22 +1390,41 @@ function toggleSizeInput(btn) {
   const colorName = tr.querySelectorAll('input')[1].value || '컬러';
   const defaultSizes = existingSizeList.length > 0 ? existingSizeList : [];
 
+  const currentSizes = defaultSizes;
+  const currentTotal = currentSizes.reduce((s,k) => s+(existingSizes[k]||0), 0);
   panelTr.innerHTML = `
-    <td colspan="5" style="padding:12px; background:var(--bg3); border:1px solid var(--border);">
-      <div style="font-size:11px; color:var(--text3); margin-bottom:8px;">${colorName} — 사이즈별 수량</div>
-      <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:8px;">
-        <input placeholder="사이즈 추가 (예: 78, M, XL)" class="table-input" id="size-add-input-${Date.now()}" style="width:180px; font-size:12px;"
-          onkeydown="if(event.key==='Enter'){addSizeCol(this); event.preventDefault();}">
-        <button type="button" class="btn btn-ghost btn-sm" onclick="addSizeCol(this.previousElementSibling)" style="font-size:11px;">추가</button>
+    <td colspan="5" style="padding:12px 16px; background:var(--bg3); border:1px solid var(--border);">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+        <span style="font-size:12px; font-weight:500; color:var(--text2);">${colorName} — 사이즈별 수량</span>
+        <div style="display:flex; align-items:center; gap:6px;">
+          <input placeholder="사이즈 (예: 78, M)" class="table-input size-add-inp" style="width:120px; font-size:11px; padding:4px 8px;"
+            onkeydown="if(event.key==='Enter'){addSizeCol(this); event.preventDefault();}">
+          <button type="button" class="btn btn-ghost btn-sm" onclick="addSizeCol(this.previousElementSibling)" style="font-size:11px;">+ 추가</button>
+        </div>
       </div>
-      <div class="size-cols" style="display:flex; gap:8px; flex-wrap:wrap;">
-        ${defaultSizes.map(s => `
-          <div style="display:flex; flex-direction:column; align-items:center; gap:4px;">
-            <span style="font-size:10px; color:var(--text3);">${s}</span>
-            <input class="table-input size-qty" data-size="${s}" type="number" value="${existingSizes[s]||''}" placeholder="0" style="width:52px; text-align:center;" oninput="updateSizeTotal(this)">
-            <span style="cursor:pointer; font-size:10px; color:var(--text3);" onclick="removeSizeCol(this)">✕</span>
-          </div>`).join('')}
+      <div style="overflow-x:auto;">
+        <table style="border-collapse:collapse; font-size:12px; width:100%;" class="size-table">
+          <thead>
+            <tr style="background:var(--bg2);">
+              ${currentSizes.map(s => `<th style="padding:6px 12px; border:1px solid var(--border); text-align:center; color:var(--text3); font-weight:500; min-width:60px;">${s}</th>`).join('')}
+              <th style="padding:6px 12px; border:1px solid var(--border); text-align:center; color:var(--accent); font-weight:600; min-width:60px;">합계</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              ${currentSizes.map(s => `
+                <td style="padding:4px; border:1px solid var(--border); text-align:center;">
+                  <input class="table-input size-qty" data-size="${s}" type="number" value="${existingSizes[s]||''}" placeholder="0"
+                    style="width:100%; text-align:center; border:none; background:transparent; padding:4px;" oninput="updateSizeTotal(this)">
+                </td>`).join('')}
+              <td style="padding:6px 12px; border:1px solid var(--border); text-align:center; color:var(--accent); font-weight:600;" class="size-sum">
+                ${currentTotal||''}
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
+      <div class="size-cols" style="display:none;"></div>
     </td>`;
 
   tr.insertAdjacentElement('afterend', panelTr);
@@ -1403,17 +1440,25 @@ function addSizeCol(input) {
   const val = input.value.trim();
   if (!val) return;
   const panel = input.closest('.size-panel');
-  const sizeDiv = panel.querySelector('.size-cols');
-  const id = 'sq_' + Date.now();
-  const div = document.createElement('div');
-  div.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:4px;';
-  div.innerHTML = `
-    <span style="font-size:10px;color:var(--text3);">${val}</span>
-    <input class="table-input size-qty" data-size="${val}" type="number" placeholder="0" style="width:52px;text-align:center;" oninput="updateSizeTotal(this)">
-    <span style="cursor:pointer;font-size:10px;color:var(--text3);" onclick="removeSizeCol(this)">✕</span>`;
-  sizeDiv.appendChild(div);
+  const table = panel.querySelector('.size-table');
+  if (!table) return;
+  const thead = table.querySelector('thead tr');
+  const tbody = table.querySelector('tbody tr');
+  const sumTh = thead.querySelector('th:last-child');
+  const sumTd = tbody.querySelector('.size-sum');
+  // Add header
+  const th = document.createElement('th');
+  th.style.cssText = 'padding:6px 12px; border:1px solid var(--border); text-align:center; color:var(--text3); font-weight:500; min-width:60px;';
+  th.textContent = val;
+  thead.insertBefore(th, sumTh);
+  // Add input cell
+  const td = document.createElement('td');
+  td.style.cssText = 'padding:4px; border:1px solid var(--border); text-align:center;';
+  td.innerHTML = `<input class="table-input size-qty" data-size="${val}" type="number" placeholder="0"
+    style="width:100%; text-align:center; border:none; background:transparent; padding:4px;" oninput="updateSizeTotal(this)">`;
+  tbody.insertBefore(td, sumTd);
   input.value = '';
-  div.querySelector('input').focus();
+  td.querySelector('input').focus();
 }
 
 function removeSizeCol(btn) {
@@ -1438,6 +1483,10 @@ function recalcSizeTotal(mainTr) {
   if (!panel || !panel.classList.contains('size-panel')) return;
   const inputs = panel.querySelectorAll('.size-qty');
   const total = Array.from(inputs).reduce((s,i) => s+(parseInt(i.value)||0), 0);
+  // Update sum cell in table
+  const sumCell = panel.querySelector('.size-sum');
+  if (sumCell) sumCell.textContent = total || '';
+  // Update main total input
   const totalInput = mainTr.querySelector('.size-total');
   if (totalInput) {
     totalInput.value = total || '';
@@ -1484,6 +1533,7 @@ function addTrimRow(d = {}) {
     <td><input class="table-input" value="${d.trim_code||''}" placeholder="코드"></td>
     <td><input class="table-input" value="${d.trim_name||''}" placeholder="부자재명"></td>
     <td><input class="table-input" value="${d.spec||''}" placeholder="규격"></td>
+    <td><input class="table-input" value="${d.color||d.trim_color||''}" placeholder="색상"></td>
     <td><input class="table-input" type="number" value="${d.qty||''}" placeholder="0"></td>
     <td><input class="table-input" value="${d.supplier||''}" placeholder="발주업체"></td>
     <td><input class="table-input" value="${d.position||''}" placeholder="부위"></td>
@@ -1531,9 +1581,9 @@ async function saveOrder() {
     }
 
     // 4. trims
-    const trims = getTableRows('trim-body', ['trim_code','trim_name','spec','qty','supplier','position']);
+    const trims = getTableRows('trim-body', ['trim_code','trim_name','spec','trim_color','qty','supplier','position']);
     if (trims.length > 0) {
-      const trimData = trims.map(r => ({ order_id: oid, trim_code: r[0], trim_name: r[1], spec: r[2], qty: parseFloat(r[3])||0, supplier: r[4], position: r[5] }));
+      const trimData = trims.map(r => ({ order_id: oid, trim_code: r[0], trim_name: r[1], spec: r[2], trim_color: r[3], qty: parseFloat(r[4])||0, supplier: r[5], position: r[6] }));
       await db.from('order_trims').insert(trimData);
     }
 
@@ -1882,6 +1932,7 @@ function addEditTrimRow(d = {}) {
     <td><input class="table-input" value="${d.trim_code||''}" placeholder="코드" ${isLocked?'readonly style="opacity:0.6"':''}></td>
     <td><input class="table-input" value="${d.trim_name||''}" placeholder="부자재명" ${isLocked?'readonly style="opacity:0.6"':''}></td>
     <td><input class="table-input" value="${d.spec||''}" placeholder="규격" ${isLocked?'readonly style="opacity:0.6"':''}></td>
+    <td><input class="table-input" value="${d.trim_color||''}" placeholder="색상" ${isLocked?'readonly style="opacity:0.6"':''}></td>
     <td><input class="table-input" type="number" value="${d.qty||''}" placeholder="0" ${isLocked?'readonly style="opacity:0.6"':''}></td>
     <td><input class="table-input" value="${d.supplier||''}" placeholder="발주업체" ${isLocked?'readonly style="opacity:0.6"':''}></td>
     <td><input class="table-input" value="${d.position||''}" placeholder="부위" ${isLocked?'readonly style="opacity:0.6"':''}></td>
@@ -1949,9 +2000,9 @@ async function saveOrderEdit() {
 
     // 부자재 업데이트
     await db.from('order_trims').delete().eq('order_id', id);
-    const trims = getTableRows('edit-trim-body', []);
+    const trims = getTableRows('edit-trim-body', ['trim_code','trim_name','spec','trim_color','qty','supplier','position']);
     if (trims.length > 0) {
-      await db.from('order_trims').insert(trims.map(r => ({ order_id: id, trim_code: r[0], trim_name: r[1], spec: r[2], qty: parseFloat(r[3])||0, supplier: r[4], position: r[5] })));
+      await db.from('order_trims').insert(trims.map(r => ({ order_id: id, trim_code: r[0], trim_name: r[1], spec: r[2], trim_color: r[3], qty: parseFloat(r[4])||0, supplier: r[5], position: r[6] })));
     }
 
     toast('저장됐습니다!');
