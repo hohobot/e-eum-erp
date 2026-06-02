@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>이음 ERP</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=DM+Mono:wght@400;500&display=swap');
 
@@ -871,7 +872,8 @@
         <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
           <button class="btn btn-ghost btn-sm" onclick="navigate('order-list')">← 목록으로</button>
           <span id="detail-title" style="font-size:15px; font-weight:500;"></span>
-          <button class="btn btn-primary btn-sm" onclick="saveOrderEdit()" style="margin-left:auto;">💾 수정 저장</button>
+          <button class="btn btn-ghost btn-sm" onclick="downloadMaterialList()" style="margin-left:auto; font-size:12px;">📥 소요량산출서</button>
+          <button class="btn btn-primary btn-sm" onclick="saveOrderEdit()">💾 수정 저장</button>
           <button class="btn btn-danger btn-sm" onclick="deleteOrder()">🗑 삭제</button>
         </div>
 
@@ -931,7 +933,7 @@
             </div>
           </div>
           <table>
-            <thead><tr><th>코드</th><th>부자재명</th><th>규격</th><th>수량</th><th>발주업체</th><th>부위</th><th>발주상태</th><th width="40"></th></tr></thead>
+            <thead><tr><th>코드</th><th>부자재명</th><th>규격</th><th>요척</th><th>발주업체</th><th>부위</th><th>발주상태</th><th width="40"></th></tr></thead>
             <tbody id="edit-trim-body"></tbody>
           </table>
           <div class="add-row-btn" id="trim-add-btn" onclick="addEditTrimRow()">＋ 부자재 추가</div>
@@ -1595,6 +1597,7 @@ function resetOrderListFilters() {
 // ─── ORDER DETAIL ────────────────────────────────────────────
 async function openOrderDetail(id) {
   loading(true, '오더 정보 불러오는 중...');
+  document.getElementById('page-order-detail').dataset.orderId = id;
   try {
     const { data: order } = await db.from('orders').select('*').eq('id', id).single();
     const { data: colors } = await db.from('order_colors').select('*').eq('order_id', id);
@@ -2705,6 +2708,133 @@ async function initAuth() {
   } else {
     document.getElementById('login-screen').classList.add('active');
     document.getElementById('user-badge').style.display = 'none';
+  }
+}
+
+
+// ─── 소요량산출서 다운로드 ─────────────────────────────────────
+async function downloadMaterialList() {
+  const orderId = document.getElementById('page-order-detail').dataset.orderId;
+  if (!orderId) { toast('오더 정보를 찾을 수 없습니다.', 'error'); return; }
+
+  loading(true, '엑셀 생성 중...');
+  try {
+    const { data: order } = await db.from('orders').select('*').eq('id', orderId).single();
+    const { data: fabrics } = await db.from('order_fabrics').select('*').eq('order_id', orderId);
+    const { data: trims } = await db.from('order_trims').select('*').eq('order_id', orderId);
+    const { data: colors } = await db.from('order_colors').select('*').eq('order_id', orderId);
+
+    const WB = XLSX.utils.book_new();
+    const ws_data = [];
+    const merges = [];
+    const today = new Date().toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'2-digit' }).replace(/ /g,'-');
+    const totalQty = (colors||[]).reduce((s,c) => s+(c.qty||0), 0);
+
+    // ── 행1~3: 헤더 + 결재란 ──
+    ws_data.push(['MATERIAL LIST','','','','','','결
+재','담당','','부장','','팀장','','관리이사','','대표','']);
+    ws_data.push(['','','','','','','','','','','','','','','','','']);
+    ws_data.push(['','','','','','','','','','','','','','','','','']);
+    merges.push(
+      {s:{r:0,c:0},e:{r:2,c:5}}, {s:{r:0,c:6},e:{r:0,c:6}},
+      {s:{r:0,c:7},e:{r:0,c:8}}, {s:{r:0,c:9},e:{r:0,c:10}},
+      {s:{r:0,c:11},e:{r:0,c:12}}, {s:{r:0,c:13},e:{r:0,c:14}},
+      {s:{r:0,c:15},e:{r:0,c:16}},
+      {s:{r:1,c:7},e:{r:2,c:8}}, {s:{r:1,c:9},e:{r:2,c:10}},
+      {s:{r:1,c:11},e:{r:2,c:12}}, {s:{r:1,c:13},e:{r:2,c:14}},
+      {s:{r:1,c:15},e:{r:2,c:16}}
+    );
+
+    // ── 행4: 공백 ──
+    ws_data.push(['','','','','','','','','','','','','','','','','']);
+
+    // ── 행5~9: DATE + COLOR/SIZE 표 ──
+    const colorRow = [`■ DATE : ${today}`,'','','COLOR/SIZE','','0','1','2','3','4','5','6','7','','','','TTL'];
+    ws_data.push(colorRow);
+    merges.push({s:{r:4,c:0},e:{r:8,c:1}}, {s:{r:4,c:3},e:{r:4,c:4}});
+
+    (colors||[]).forEach((c,i) => {
+      ws_data.push(['','','',c.color_name||'','','','','','','','','','','','','',c.qty||0]);
+      merges.push({s:{r:5+i,c:3},e:{r:5+i,c:4}});
+    });
+    // TOTAL row
+    const totalRowIdx = 5 + (colors||[]).length;
+    ws_data.push(['','','','TOTAL','','','','','','','','','','','','',totalQty]);
+    merges.push({s:{r:totalRowIdx,c:3},e:{r:totalRowIdx,c:4}});
+    ws_data.push(['','','','','','','','','','','','','','','','','']);
+
+    // ── 행10: 공백 ──
+    ws_data.push(['','','','','','','','','','','','','','','','','']);
+
+    // ── 행11~12: BRAND/BUYER 헤더 ──
+    const brandName = `${order.brand||''} / E-EUM`;
+    ws_data.push(['BRAND/BUYER','STYLE NO','','','ITEM/HS CODE','','','','','','','Q'TY','','FACTORY','','','']);
+    ws_data.push([brandName, order.style_number||'','','',`${order.season||''} ${order.item||''}`,
+      '','','','','','',`${totalQty}pcs`,'','VIETNAM','','','']);
+    const bRow = ws_data.length - 2;
+    merges.push(
+      {s:{r:bRow,c:1},e:{r:bRow,c:3}}, {s:{r:bRow,c:4},e:{r:bRow,c:10}},
+      {s:{r:bRow,c:11},e:{r:bRow,c:12}}, {s:{r:bRow,c:13},e:{r:bRow,c:16}},
+      {s:{r:bRow+1,c:0},e:{r:bRow+1,c:0}}, {s:{r:bRow+1,c:1},e:{r:bRow+1,c:3}},
+      {s:{r:bRow+1,c:4},e:{r:bRow+1,c:10}}, {s:{r:bRow+1,c:11},e:{r:bRow+1,c:12}},
+      {s:{r:bRow+1,c:13},e:{r:bRow+1,c:16}}
+    );
+
+    // ── 행13~14: 컬럼 헤더 (2행 병합) ──
+    const hRow = ws_data.length;
+    ws_data.push(['DESCRIPTION','Placement','ITEM','업체','WIDTH
+(SPEC)','COLOR','ORDER
+Q'TY','CONS','LOSS(3%)','NEEDED','PRICE','ACTUAL','','TTL','REMARK','','']);
+    ws_data.push(['','','','','','','','','','','','','','','','','']);
+    merges.push(
+      {s:{r:hRow,c:0},e:{r:hRow+1,c:0}}, {s:{r:hRow,c:1},e:{r:hRow+1,c:1}},
+      {s:{r:hRow,c:2},e:{r:hRow+1,c:2}}, {s:{r:hRow,c:3},e:{r:hRow+1,c:3}},
+      {s:{r:hRow,c:4},e:{r:hRow+1,c:4}}, {s:{r:hRow,c:5},e:{r:hRow+1,c:5}},
+      {s:{r:hRow,c:6},e:{r:hRow+1,c:6}}, {s:{r:hRow,c:7},e:{r:hRow+1,c:7}},
+      {s:{r:hRow,c:8},e:{r:hRow+1,c:8}}, {s:{r:hRow,c:9},e:{r:hRow+1,c:9}},
+      {s:{r:hRow,c:10},e:{r:hRow+1,c:10}}, {s:{r:hRow,c:11},e:{r:hRow+1,c:12}},
+      {s:{r:hRow,c:13},e:{r:hRow+1,c:13}}, {s:{r:hRow,c:14},e:{r:hRow+1,c:16}}
+    );
+
+    // ── 원단 rows ──
+    (fabrics||[]).forEach(f => {
+      ws_data.push([
+        f.category||'FABRIC', f.material_code||'', f.material_name||'', f.supplier||'',
+        f.composition||'', '', totalQty, f.yardage||'', '', '', '', ' ', f.unit||'YD', '$0.00', ' ','',''
+      ]);
+    });
+
+    // ── 부자재 rows ──
+    (trims||[]).forEach(t => {
+      ws_data.push([
+        t.trim_code||'', t.position||'', t.trim_name||'', t.supplier||'',
+        t.spec||'', '', totalQty, `${t.qty||1} EA`, '1.05', '', '', ' ', 'EA', '$0.00', ' ','',''
+      ]);
+    });
+
+    // ── 합계 행 ──
+    ws_data.push(['','','','','','','','','','','','','','$0','','','']);
+    ws_data.push(['','','','','','','','','','','','pcs당 원 부자재 단가','','0','','','']);
+
+    const ws = XLSX.utils.aoa_to_sheet(ws_data);
+    ws['!merges'] = merges;
+
+    // 컬럼 너비 설정 (예시 파일 참고)
+    ws['!cols'] = [
+      {wch:14},{wch:16},{wch:22},{wch:14},{wch:10},{wch:8},
+      {wch:9},{wch:10},{wch:8},{wch:8},{wch:8},{wch:8},
+      {wch:6},{wch:10},{wch:16},{wch:6},{wch:6}
+    ];
+
+    XLSX.utils.book_append_sheet(WB, ws, 'Factory Sheet');
+    const fname = `MATERIAL LIST_${order.style_number||''}${order.season||''}.xlsx`;
+    XLSX.writeFile(WB, fname);
+    toast('소요량산출서 다운로드 완료!');
+  } catch(e) {
+    console.error(e);
+    toast('다운로드 오류: ' + e.message, 'error');
+  } finally {
+    loading(false);
   }
 }
 
