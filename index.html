@@ -1366,6 +1366,7 @@ function fillForm(d) {
   // colors
   if (d.colors && d.colors.length > 0) {
     document.getElementById('color-body').innerHTML = '';
+    d = correctPDFData(d);
     d.colors.forEach(c => addColorRow(c));
   }
   // fabrics
@@ -1678,6 +1679,117 @@ function addFabricRow(d = {}) {
   document.getElementById('fabric-body').appendChild(tr);
 }
 
+
+
+// ─── OCR 보정 사전 ───────────────────────────────────────────
+const OCR_CORRECTIONS = {
+  // 부자재명 보정
+  trim_name: [
+    ['에프본자버', '에프론지퍼'],
+    ['에프본지버', '에프론지퍼'],
+    ['에프버지퍼', '에프론지퍼'],
+    ['에프본자퍼', '에프론지퍼'],
+    ['에프버지버', '에프론지퍼'],
+    ['자피', '지퍼'],
+    ['자버', '지퍼'],
+    ['자퍼', '지퍼'],
+    ['마이강', '마이깡'],
+    ['마이캉', '마이깡'],
+    ['캔론', '캔톤'],
+    ['캔통', '캔톤'],
+    ['켄통', '켄톤'],
+    ['스냅마이강', '스냅마이깡'],
+    ['봉사(고징)', '봉사(고정)'],
+    ['봉사(고징)', '봉사(고정)'],
+    ['비바이아스', '비바이어스'],
+    ['비바이아드', '비바이어스'],
+    ['해링본', '헤링본'],
+    ['폴리백(하자포장)', '폴리백(바지용)'],
+    ['폴리벡', '폴리백'],
+    ['라이크라', '라이크라'],
+    ['테이캡', '테이프'],
+    ['테이크', '테이프'],
+    ['테잎', '테이프'],
+    ['자수(직자수)', '직자수'],
+    ['심볼자수', '심볼자수'],
+  ],
+  // 업체명 보정
+  supplier: [
+    ['이노시드모빌리', '이노시드컴퍼니'],
+    ['이노시드모빌', '이노시드컴퍼니'],
+    ['(주) 이노시드모빌리', '(주) 이노시드컴퍼니'],
+    ['이노시드컴퍼', '이노시드컴퍼니'],
+    ['주영산업', '주영라인'],
+    ['(주)주영산업', '(주)주영라인'],
+    ['주영라인', '(주)주영라인'],
+    ['영일에프엔아이', '영일에프앤아이'],
+    ['(주)영일에프엔아이', '(주)영일에프앤아이'],
+    ['영일에프엔이', '영일에프앤아이'],
+    ['두온물산', '(주)두온물산'],
+    ['동은종선', '동은종선'],
+    ['동은종신', '동은종선'],
+    ['(주)동은종선', '(주)동은종선'],
+    ['모노에프엔디', '(주)모노에프앤디'],
+    ['모노에프앤이', '(주)모노에프앤디'],
+    ['영우상사', '영우상사'],
+    ['새서울자수', '새서울자수'],
+    ['서원상사', '(주) 서원상사'],
+    ['영원', '(주) 영원'],
+    ['(주) 영웬', '(주) 영원'],
+    ['(주)영웬', '(주) 영원'],
+    ['다오트레이딩', '(주)다오트레이딩'],
+    ['다오트레이딩', '㈜다오트레이딩'],
+    ['광우상사', '광우상사'],
+    ['복성화학공업사', '복성화학공업사'],
+    ['농전상사', '농전상사'],
+    ['이음비나', '이음비나'],
+  ],
+  // 부위 보정
+  position: [
+    ['주머니강', '주머니감'],
+    ['주머니캄', '주머니감'],
+    ['주미니감', '주머니감'],
+    ['오비,부속', '오비,부속'],
+    ['오비.부속', '오비,부속'],
+    ['착좌 시연주머니', '착좌 사연주머니'],
+    ['착좌시연', '착좌사연'],
+    ['본고리', '본고리'],
+    ['본금시너도라', '본금시너도라'],
+  ]
+};
+
+function applyOCRCorrections(text, type) {
+  if (!text) return text;
+  let result = text.trim();
+  const corrections = OCR_CORRECTIONS[type] || [];
+  for (const [wrong, correct] of corrections) {
+    if (result.includes(wrong)) {
+      result = result.replace(new RegExp(wrong.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), correct);
+    }
+  }
+  return result;
+}
+
+function correctPDFData(data) {
+  if (!data) return data;
+  // 부자재 보정
+  if (data.trims) {
+    data.trims = data.trims.map(t => ({
+      ...t,
+      trim_name: applyOCRCorrections(t.trim_name, 'trim_name'),
+      supplier: applyOCRCorrections(t.supplier, 'supplier'),
+      position: applyOCRCorrections(t.position, 'position'),
+    }));
+  }
+  // 원단 보정
+  if (data.fabrics) {
+    data.fabrics = data.fabrics.map(f => ({
+      ...f,
+      supplier: applyOCRCorrections(f.supplier, 'supplier'),
+    }));
+  }
+  return data;
+}
 
 // ─── 부자재 분류 및 정렬 ─────────────────────────────────────
 function getTrimCategory(t) {
