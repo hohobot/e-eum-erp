@@ -467,13 +467,21 @@
 
 
   /* ─── DATE INPUT ─────────────────────────────────────────── */
-  input[type="date"] {
+  input[type="date"],
+  input[type="time"],
+  input[type="datetime-local"] {
     color-scheme: dark;
     color: var(--text1);
   }
-  input[type="date"]::-webkit-calendar-picker-indicator {
-    filter: invert(1) brightness(2);
+  input[type="date"]::-webkit-calendar-picker-indicator,
+  input[type="time"]::-webkit-calendar-picker-indicator,
+  input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+    filter: invert(1) brightness(3);
+    opacity: 1;
     cursor: pointer;
+  }
+  input[type="date"]::-webkit-inner-spin-button {
+    display: none;
   }
 
 </style>
@@ -933,10 +941,15 @@
         <div class="card">
           <div class="card-title">컬러 / 수량</div>
           <table>
-            <thead><tr><th>컬러코드</th><th>컬러명</th><th>총수량</th><th>사이즈별 수량</th><th width="40"></th></tr></thead>
+            <thead><tr><th>컬러코드</th><th>컬러명</th><th>수량</th><th width="40"></th></tr></thead>
             <tbody id="edit-color-body"></tbody>
           </table>
           <div class="add-row-btn" onclick="addEditColorRow()">＋ 컬러 추가</div>
+          <!-- 아소트 수량 -->
+          <div id="assort-section" style="margin-top:16px; display:none;">
+            <div style="font-size:12px; font-weight:500; color:var(--text2); margin-bottom:8px; padding-top:12px; border-top:1px solid var(--border);">아소트 수량 (사이즈별)</div>
+            <div id="assort-table" style="overflow-x:auto;"></div>
+          </div>
         </div>
 
         <div class="card">
@@ -1844,6 +1857,7 @@ async function openOrderDetail(id) {
     const cb = document.getElementById('edit-color-body');
     cb.innerHTML = '';
     (colors || []).forEach(c => addEditColorRow(c));
+    renderAssortTable();
 
     // fabrics
     const fb = document.getElementById('edit-fabric-body');
@@ -1879,20 +1893,19 @@ function addEditColorRow(d = {}) {
   const sizes = d.sizes ? (typeof d.sizes === 'string' ? JSON.parse(d.sizes) : d.sizes) : {};
   const sizeList = d.size_list ? d.size_list.split(',').filter(Boolean) : Object.keys(sizes);
   const totalQty = sizeList.length > 0 ? sizeList.reduce((s,k) => s+(sizes[k]||0), 0) : (d.qty||0);
-  const hasSizes = sizeList.length > 0;
 
   tr.innerHTML = `
     <td><input class="table-input" value="${d.color_code||''}" placeholder="GY"></td>
     <td><input class="table-input" value="${d.color_name||''}" placeholder="GREY"></td>
-    <td><input class="table-input size-total" type="number" value="${totalQty||''}" placeholder="0" ${hasSizes?'readonly style="background:var(--bg1);color:var(--accent);"':''}></td>
-    <td><button type="button" class="btn btn-ghost btn-sm" onclick="toggleSizeInputEdit(this)" style="font-size:11px; white-space:nowrap;">${hasSizes?'✏️ 사이즈 수정':'+ 사이즈 입력'}</button></td>
+    <td><input class="table-input" type="number" value="${totalQty||''}" placeholder="0"></td>
     <td><span style="cursor:pointer;color:var(--text3);" onclick="this.closest('tr').remove()">✕</span></td>`;
 
-  if (hasSizes) {
+  if (sizeList.length > 0) {
     tr.dataset.sizes = JSON.stringify(sizes);
     tr.dataset.sizeList = sizeList.join(',');
   }
   document.getElementById('edit-color-body').appendChild(tr);
+  renderAssortTable();
 }
 
 function toggleSizeInputEdit(btn) {
@@ -3114,6 +3127,61 @@ async function downloadMaterialList() {
   }
 }
 
+
+
+// ─── 아소트 수량 테이블 ───────────────────────────────────────
+function renderAssortTable() {
+  const section = document.getElementById('assort-section');
+  const tableDiv = document.getElementById('assort-table');
+  if (!section || !tableDiv) return;
+
+  const rows = document.querySelectorAll('#edit-color-body tr');
+  // Collect all colors with size data
+  const colorData = [];
+  rows.forEach(tr => {
+    if (!tr.dataset.sizeList) return;
+    const colorName = tr.querySelectorAll('input')[1]?.value || '';
+    const sizes = JSON.parse(tr.dataset.sizes || '{}');
+    const sizeList = tr.dataset.sizeList.split(',').filter(Boolean);
+    if (sizeList.length > 0) colorData.push({ colorName, sizes, sizeList });
+  });
+
+  if (colorData.length === 0) { section.style.display = 'none'; return; }
+  section.style.display = 'block';
+
+  // Get all unique sizes in order
+  const allSizes = [];
+  colorData[0].sizeList.forEach(s => { if (!allSizes.includes(s)) allSizes.push(s); });
+
+  tableDiv.innerHTML = `
+    <table style="border-collapse:collapse; font-size:12px; width:100%;">
+      <thead>
+        <tr style="background:var(--bg2);">
+          <th style="padding:6px 10px; border:1px solid var(--border); text-align:left; color:var(--text3);">컬러</th>
+          ${allSizes.map(s => `<th style="padding:6px 10px; border:1px solid var(--border); text-align:center; color:var(--text3); min-width:52px;">${s}</th>`).join('')}
+          <th style="padding:6px 10px; border:1px solid var(--border); text-align:center; color:var(--accent); font-weight:600;">합계</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${colorData.map(c => {
+          const total = allSizes.reduce((s,k) => s+(c.sizes[k]||0), 0);
+          return `<tr>
+            <td style="padding:6px 10px; border:1px solid var(--border); color:var(--text2); font-weight:500;">${c.colorName}</td>
+            ${allSizes.map(s => `<td style="padding:6px 10px; border:1px solid var(--border); text-align:center; color:var(--text1);">${c.sizes[s]||'—'}</td>`).join('')}
+            <td style="padding:6px 10px; border:1px solid var(--border); text-align:center; color:var(--accent); font-weight:600;">${total}</td>
+          </tr>`;
+        }).join('')}
+        ${colorData.length > 1 ? `<tr style="background:var(--bg2);">
+          <td style="padding:6px 10px; border:1px solid var(--border); color:var(--text3); font-weight:500;">TOTAL</td>
+          ${allSizes.map(s => {
+            const tot = colorData.reduce((sum,c) => sum+(c.sizes[s]||0), 0);
+            return `<td style="padding:6px 10px; border:1px solid var(--border); text-align:center; font-weight:600; color:var(--text1);">${tot||'—'}</td>`;
+          }).join('')}
+          <td style="padding:6px 10px; border:1px solid var(--border); text-align:center; color:var(--accent); font-weight:700;">${colorData.reduce((s,c) => s+allSizes.reduce((ss,k) => ss+(c.sizes[k]||0), 0), 0)}</td>
+        </tr>` : ''}
+      </tbody>
+    </table>`;
+}
 
 // ─── 작업지시서 파일 관리 ─────────────────────────────────────
 async function loadWorkOrderFiles(orderId) {
