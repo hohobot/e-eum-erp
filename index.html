@@ -1326,6 +1326,32 @@ function addColorRow(d = {}) {
     tr.dataset.sizeList = sizeList.join(',');
   }
   document.getElementById('color-body').appendChild(tr);
+
+  // PDF에서 불러온 경우 사이즈 패널 자동 펼치기
+  if (hasSizes) {
+    const panelTr = document.createElement('tr');
+    panelTr.className = 'size-panel';
+    panelTr.innerHTML = `
+      <td colspan="5" style="padding:12px; background:var(--bg3); border:1px solid var(--border);">
+        <div style="font-size:11px; color:var(--text3); margin-bottom:8px;">${d.color_name||'컬러'} — 사이즈별 수량</div>
+        <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:8px;">
+          <input placeholder="사이즈 추가 (예: 78, M, XL)" class="table-input" style="width:180px; font-size:12px;"
+            onkeydown="if(event.key==='Enter'){addSizeCol(this); event.preventDefault();}">
+          <button type="button" class="btn btn-ghost btn-sm" onclick="addSizeCol(this.previousElementSibling)" style="font-size:11px;">추가</button>
+        </div>
+        <div class="size-cols" style="display:flex; gap:8px; flex-wrap:wrap;">
+          ${sizeList.map(s => `
+            <div style="display:flex; flex-direction:column; align-items:center; gap:4px;">
+              <span style="font-size:10px; color:var(--text3);">${s}</span>
+              <input class="table-input size-qty" data-size="${s}" type="number" value="${sizes[s]||''}" placeholder="0" style="width:52px; text-align:center;" oninput="updateSizeTotal(this)">
+              <span style="cursor:pointer; font-size:10px; color:var(--text3);" onclick="removeSizeCol(this)">✕</span>
+            </div>`).join('')}
+        </div>
+      </td>`;
+    document.getElementById('color-body').appendChild(panelTr);
+    const btn = tr.querySelector('button');
+    if (btn) btn.textContent = '접기';
+  }
 }
 
 function toggleSizeInput(btn) {
