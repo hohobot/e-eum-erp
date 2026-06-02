@@ -752,8 +752,7 @@
                 <tr>
                   <th>컬러코드</th>
                   <th>컬러명</th>
-                  <th>총수량</th>
-                  <th>사이즈별 수량</th>
+                  <th>수량</th>
                   <th width="40"></th>
                 </tr>
               </thead>
@@ -761,13 +760,24 @@
                 <tr>
                   <td><input class="table-input" placeholder="GY"></td>
                   <td><input class="table-input" placeholder="GREY"></td>
-                  <td><input class="table-input size-total" type="number" placeholder="0" readonly style="background:var(--bg1); color:var(--accent);"></td>
-                  <td><button type="button" class="btn btn-ghost btn-sm" onclick="toggleSizeInput(this)" style="font-size:11px; white-space:nowrap;">+ 사이즈 입력</button></td>
+                  <td><input class="table-input size-total" type="number" placeholder="0"></td>
                   <td><span style="cursor:pointer;color:var(--text3);" onclick="this.closest('tr').remove()">✕</span></td>
                 </tr>
               </tbody>
             </table>
             <div class="add-row-btn" onclick="addColorRow()">＋ 컬러 추가</div>
+          <!-- 아소트 매트릭스 -->
+          <div id="new-assort-section" style="margin-top:16px; display:none;">
+            <div style="font-size:12px; font-weight:500; color:var(--text2); margin-bottom:8px; padding-top:12px; border-top:1px solid var(--border); display:flex; align-items:center; justify-content:space-between;">
+              <span>아소트 수량 (컬러×사이즈)</span>
+              <div style="display:flex; align-items:center; gap:6px;">
+                <input id="new-size-input" placeholder="사이즈 추가 (예: 78)" class="table-input" style="width:130px; font-size:11px; padding:4px 8px;"
+                  onkeydown="if(event.key==='Enter'){addNewAssortSize(); event.preventDefault();}">
+                <button type="button" class="btn btn-ghost btn-sm" onclick="addNewAssortSize()" style="font-size:11px;">+ 사이즈</button>
+              </div>
+            </div>
+            <div id="new-assort-table" style="overflow-x:auto;"></div>
+          </div>
           </div>
 
           <!-- FABRICS -->
@@ -1371,68 +1381,144 @@ function fillForm(d) {
 }
 
 // ─── ADD ROWS ────────────────────────────────────────────────
+// 아소트 공통 사이즈 목록 (order-new용)
+let _newAssortSizes = [];
+
 function addColorRow(d = {}) {
   const tr = document.createElement('tr');
   const sizes = d.sizes ? (typeof d.sizes === 'string' ? JSON.parse(d.sizes) : d.sizes) : {};
   const sizeList = d.size_list ? d.size_list.split(',').filter(Boolean) : Object.keys(sizes);
   const totalQty = sizeList.length > 0 ? sizeList.reduce((s,k) => s+(sizes[k]||0), 0) : (d.qty||0);
-  const hasSizes = sizeList.length > 0;
 
   tr.innerHTML = `
-    <td><input class="table-input" value="${d.color_code||''}" placeholder="GY"></td>
-    <td><input class="table-input" value="${d.color_name||''}" placeholder="GREY"></td>
-    <td><input class="table-input size-total" type="number" value="${totalQty||''}" placeholder="0" ${hasSizes?'readonly style="background:var(--bg1);color:var(--accent);"':''}></td>
-    <td><button type="button" class="btn btn-ghost btn-sm" onclick="toggleSizeInput(this)" style="font-size:11px; white-space:nowrap;">${hasSizes?'✏️ 사이즈 수정':'+ 사이즈 입력'}</button></td>
-    <td><span style="cursor:pointer;color:var(--text3);" onclick="this.closest('tr').remove()">✕</span></td>`;
+    <td><input class="table-input" value="${d.color_code||''}" placeholder="GY" oninput="renderNewAssortMatrix()"></td>
+    <td><input class="table-input" value="${d.color_name||''}" placeholder="GREY" oninput="renderNewAssortMatrix()"></td>
+    <td><input class="table-input size-total" type="number" value="${totalQty||''}" placeholder="0" style="color:var(--accent);"></td>
+    <td><span style="cursor:pointer;color:var(--text3);" onclick="this.closest('tr').remove(); renderNewAssortMatrix();">✕</span></td>`;
 
-  // Store existing size data
-  if (hasSizes) {
+  if (sizeList.length > 0) {
     tr.dataset.sizes = JSON.stringify(sizes);
     tr.dataset.sizeList = sizeList.join(',');
+    // Merge sizes into global list
+    sizeList.forEach(s => { if (!_newAssortSizes.includes(s)) _newAssortSizes.push(s); });
   }
   document.getElementById('color-body').appendChild(tr);
+  renderNewAssortMatrix();
+}
 
-  // PDF에서 불러온 경우 사이즈 패널 자동 펼치기
-  if (hasSizes) {
-    const panelTr = document.createElement('tr');
-    panelTr.className = 'size-panel';
-    panelTr.innerHTML = `
-      <td colspan="5" style="padding:12px 16px; background:var(--bg3); border:1px solid var(--border);">
-        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
-          <span style="font-size:12px; font-weight:500; color:var(--text2);">${d.color_name||'컬러'} — 사이즈별 수량</span>
-          <div style="display:flex; align-items:center; gap:6px;">
-            <input placeholder="사이즈 (예: 78, M)" class="table-input" style="width:120px; font-size:11px; padding:4px 8px;"
-              onkeydown="if(event.key==='Enter'){addSizeCol(this); event.preventDefault();}">
-            <button type="button" class="btn btn-ghost btn-sm" onclick="addSizeCol(this.previousElementSibling)" style="font-size:11px;">+ 추가</button>
-          </div>
-        </div>
-        <div style="overflow-x:auto;">
-          <table style="border-collapse:collapse; font-size:12px; width:100%;">
-            <thead>
-              <tr style="background:var(--bg2);">
-                ${sizeList.map(s => `<th style="padding:6px 12px; border:1px solid var(--border); text-align:center; color:var(--text3); font-weight:500; min-width:60px;">${s}</th>`).join('')}
-                <th style="padding:6px 12px; border:1px solid var(--border); text-align:center; color:var(--accent); font-weight:600; min-width:60px;">합계</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                ${sizeList.map(s => `
-                  <td style="padding:4px; border:1px solid var(--border); text-align:center;">
-                    <input class="table-input size-qty" data-size="${s}" type="number" value="${sizes[s]||''}" placeholder="0"
-                      style="width:100%; text-align:center; border:none; background:transparent; padding:4px;" oninput="updateSizeTotal(this)">
-                  </td>`).join('')}
-                <td style="padding:6px 12px; border:1px solid var(--border); text-align:center; color:var(--accent); font-weight:600;" class="size-sum">
-                  ${sizeList.reduce((s,k) => s+(sizes[k]||0), 0)||''}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <div class="size-cols" style="display:none;"></div>
-      </td>`;
-    document.getElementById('color-body').appendChild(panelTr);
-    const btn = tr.querySelector('button');
-    if (btn) btn.textContent = '접기';
+function addNewAssortSize() {
+  const inp = document.getElementById('new-size-input');
+  const val = inp.value.trim();
+  if (!val || _newAssortSizes.includes(val)) { inp.value=''; return; }
+  _newAssortSizes.push(val);
+  inp.value = '';
+  renderNewAssortMatrix();
+}
+
+function renderNewAssortMatrix() {
+  const section = document.getElementById('new-assort-section');
+  const tableDiv = document.getElementById('new-assort-table');
+  if (!section || !tableDiv) return;
+
+  const rows = Array.from(document.querySelectorAll('#color-body tr'));
+  const colors = rows.map(tr => {
+    const inputs = tr.querySelectorAll('input');
+    const sizes = tr.dataset.sizes ? JSON.parse(tr.dataset.sizes) : {};
+    return { code: inputs[0]?.value||'', name: inputs[1]?.value||'', sizes };
+  }).filter(c => c.name);
+
+  if (colors.length === 0 || _newAssortSizes.length === 0) {
+    section.style.display = 'none'; return;
+  }
+  section.style.display = 'block';
+
+  tableDiv.innerHTML = `
+    <table style="border-collapse:collapse; font-size:12px;">
+      <thead>
+        <tr style="background:var(--bg2);">
+          <th style="padding:6px 10px; border:1px solid var(--border); text-align:left; color:var(--text3);">COLOR/SIZE</th>
+          ${_newAssortSizes.map(s => `<th style="padding:6px 10px; border:1px solid var(--border); text-align:center; color:var(--text3); min-width:52px;">${s}</th>`).join('')}
+          <th style="padding:6px 10px; border:1px solid var(--border); text-align:center; color:var(--accent); font-weight:600;">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${colors.map(c => {
+          const total = _newAssortSizes.reduce((s,k) => s+(c.sizes[k]||0), 0);
+          return `<tr>
+            <td style="padding:6px 10px; border:1px solid var(--border); color:var(--text2); font-weight:500; white-space:nowrap;">${c.name}</td>
+            ${_newAssortSizes.map(s => `
+              <td style="padding:2px 4px; border:1px solid var(--border); text-align:center;">
+                <input type="number" value="${c.sizes[s]||''}" placeholder="0" data-color="${c.name}" data-size="${s}"
+                  style="width:48px; text-align:center; background:transparent; border:none; color:var(--text1); font-size:12px; padding:4px;"
+                  oninput="updateNewAssortCell(this)">
+              </td>`).join('')}
+            <td style="padding:6px 10px; border:1px solid var(--border); text-align:center; color:var(--accent); font-weight:600;" id="row-total-${c.name.replace(/\s/g,'_')}">${total||'—'}</td>
+          </tr>`;
+        }).join('')}
+        ${colors.length > 1 ? `<tr style="background:var(--bg2);">
+          <td style="padding:6px 10px; border:1px solid var(--border); font-weight:600; color:var(--text2);">Total</td>
+          ${_newAssortSizes.map(s => {
+            const t = colors.reduce((sum,c) => sum+(c.sizes[s]||0), 0);
+            return `<td style="padding:6px 10px; border:1px solid var(--border); text-align:center; font-weight:600; color:var(--text1);" id="col-total-${s}">${t||'—'}</td>`;
+          }).join('')}
+          <td style="padding:6px 10px; border:1px solid var(--border); text-align:center; color:var(--accent); font-weight:700;" id="grand-total">${colors.reduce((s,c)=>s+_newAssortSizes.reduce((ss,k)=>ss+(c.sizes[k]||0),0),0)||'—'}</td>
+        </tr>` : ''}
+      </tbody>
+    </table>`;
+}
+
+function updateNewAssortCell(inp) {
+  const colorName = inp.dataset.color;
+  const size = inp.dataset.size;
+  const val = parseInt(inp.value) || 0;
+
+  // Update stored sizes in color row
+  const rows = Array.from(document.querySelectorAll('#color-body tr'));
+  rows.forEach(tr => {
+    const nameInp = tr.querySelectorAll('input')[1];
+    if (nameInp?.value === colorName) {
+      const sizes = tr.dataset.sizes ? JSON.parse(tr.dataset.sizes) : {};
+      sizes[size] = val;
+      tr.dataset.sizes = JSON.stringify(sizes);
+      // Update total
+      const total = _newAssortSizes.reduce((s,k) => s+(sizes[k]||0), 0);
+      const totalInp = tr.querySelector('.size-total');
+      if (totalInp) totalInp.value = total || '';
+    }
+  });
+
+  // Update row/col totals
+  const rowTotalEl = document.getElementById(`row-total-${colorName.replace(/\s/g,'_')}`);
+  const colTotalEl = document.getElementById(`col-total-${size}`);
+  const grandEl = document.getElementById('grand-total');
+
+  if (rowTotalEl) {
+    const allColors = Array.from(document.querySelectorAll('#color-body tr'))
+      .map(tr => { const s = tr.dataset.sizes ? JSON.parse(tr.dataset.sizes) : {}; return s; });
+    const rowColor = allColors.find((s,i) => {
+      const n = document.querySelectorAll('#color-body tr')[i]?.querySelectorAll('input')[1]?.value;
+      return n === colorName;
+    });
+    if (rowColor) rowTotalEl.textContent = _newAssortSizes.reduce((s,k)=>s+(rowColor[k]||0),0)||'—';
+  }
+
+  // Recalc column total
+  if (colTotalEl) {
+    const allRows = Array.from(document.querySelectorAll('#color-body tr'));
+    const colTotal = allRows.reduce((s, tr) => {
+      const sizes = tr.dataset.sizes ? JSON.parse(tr.dataset.sizes) : {};
+      return s + (sizes[size] || 0);
+    }, 0);
+    colTotalEl.textContent = colTotal || '—';
+  }
+
+  if (grandEl) {
+    const allRows = Array.from(document.querySelectorAll('#color-body tr'));
+    const grand = allRows.reduce((s, tr) => {
+      const sizes = tr.dataset.sizes ? JSON.parse(tr.dataset.sizes) : {};
+      return s + _newAssortSizes.reduce((ss,k) => ss+(sizes[k]||0), 0);
+    }, 0);
+    grandEl.textContent = grand || '—';
   }
 }
 
