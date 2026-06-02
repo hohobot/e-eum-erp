@@ -1702,7 +1702,7 @@ async function loadDashboard() {
   document.getElementById('dashboard-title').textContent = title;
 
   // 최근 5건
-  const recent = [...filtered].sort((a,b) => new Date(b.created_at)-new Date(a.created_at)).slice(0,5);
+  const recent = [...filtered].sort((a,b) => new Date(b.created_at)-new Date(a.created_at));
   const tbody = document.getElementById('dashboard-orders');
   if (recent.length === 0) {
     tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">해당 조건의 오더가 없습니다</div></div></td></tr>';
