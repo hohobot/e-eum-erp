@@ -729,7 +729,8 @@
                 <tr>
                   <th>컬러코드</th>
                   <th>컬러명</th>
-                  <th>수량</th>
+                  <th>총수량</th>
+                  <th>사이즈별 수량</th>
                   <th width="40"></th>
                 </tr>
               </thead>
@@ -737,7 +738,8 @@
                 <tr>
                   <td><input class="table-input" placeholder="GY"></td>
                   <td><input class="table-input" placeholder="GREY"></td>
-                  <td><input class="table-input" type="number" placeholder="215"></td>
+                  <td><input class="table-input size-total" type="number" placeholder="0" readonly style="background:var(--bg1); color:var(--accent);"></td>
+                  <td><button type="button" class="btn btn-ghost btn-sm" onclick="toggleSizeInput(this)" style="font-size:11px; white-space:nowrap;">+ 사이즈 입력</button></td>
                   <td><span style="cursor:pointer;color:var(--text3);" onclick="this.closest('tr').remove()">✕</span></td>
                 </tr>
               </tbody>
@@ -909,7 +911,7 @@
         <div class="card">
           <div class="card-title">컬러 / 수량</div>
           <table>
-            <thead><tr><th>컬러코드</th><th>컬러명</th><th>수량</th><th width="40"></th></tr></thead>
+            <thead><tr><th>컬러코드</th><th>컬러명</th><th>총수량</th><th>사이즈별 수량</th><th width="40"></th></tr></thead>
             <tbody id="edit-color-body"></tbody>
           </table>
           <div class="add-row-btn" onclick="addEditColorRow()">＋ 컬러 추가</div>
@@ -1306,12 +1308,135 @@ function fillForm(d) {
 // ─── ADD ROWS ────────────────────────────────────────────────
 function addColorRow(d = {}) {
   const tr = document.createElement('tr');
+  const sizes = d.sizes ? (typeof d.sizes === 'string' ? JSON.parse(d.sizes) : d.sizes) : {};
+  const sizeList = d.size_list ? d.size_list.split(',').filter(Boolean) : Object.keys(sizes);
+  const totalQty = sizeList.length > 0 ? sizeList.reduce((s,k) => s+(sizes[k]||0), 0) : (d.qty||0);
+  const hasSizes = sizeList.length > 0;
+
   tr.innerHTML = `
     <td><input class="table-input" value="${d.color_code||''}" placeholder="GY"></td>
     <td><input class="table-input" value="${d.color_name||''}" placeholder="GREY"></td>
-    <td><input class="table-input" type="number" value="${d.qty||''}" placeholder="0"></td>
+    <td><input class="table-input size-total" type="number" value="${totalQty||''}" placeholder="0" ${hasSizes?'readonly style="background:var(--bg1);color:var(--accent);"':''}></td>
+    <td><button type="button" class="btn btn-ghost btn-sm" onclick="toggleSizeInput(this)" style="font-size:11px; white-space:nowrap;">${hasSizes?'✏️ 사이즈 수정':'+ 사이즈 입력'}</button></td>
     <td><span style="cursor:pointer;color:var(--text3);" onclick="this.closest('tr').remove()">✕</span></td>`;
+
+  // Store existing size data
+  if (hasSizes) {
+    tr.dataset.sizes = JSON.stringify(sizes);
+    tr.dataset.sizeList = sizeList.join(',');
+  }
   document.getElementById('color-body').appendChild(tr);
+}
+
+function toggleSizeInput(btn) {
+  const tr = btn.closest('tr');
+  const existingSizes = tr.dataset.sizes ? JSON.parse(tr.dataset.sizes) : {};
+  const existingSizeList = tr.dataset.sizeList ? tr.dataset.sizeList.split(',') : [];
+
+  // Check if size panel already open (next sibling tr)
+  const nextTr = tr.nextElementSibling;
+  if (nextTr && nextTr.classList.contains('size-panel')) {
+    nextTr.remove();
+    btn.textContent = existingSizeList.length > 0 ? '✏️ 사이즈 수정' : '+ 사이즈 입력';
+    return;
+  }
+
+  const panelTr = document.createElement('tr');
+  panelTr.className = 'size-panel';
+  const colorName = tr.querySelectorAll('input')[1].value || '컬러';
+  const defaultSizes = existingSizeList.length > 0 ? existingSizeList : [];
+
+  panelTr.innerHTML = `
+    <td colspan="5" style="padding:12px; background:var(--bg3); border:1px solid var(--border);">
+      <div style="font-size:11px; color:var(--text3); margin-bottom:8px;">${colorName} — 사이즈별 수량</div>
+      <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:8px;">
+        <input placeholder="사이즈 추가 (예: 78, M, XL)" class="table-input" id="size-add-input-${Date.now()}" style="width:180px; font-size:12px;"
+          onkeydown="if(event.key==='Enter'){addSizeCol(this); event.preventDefault();}">
+        <button type="button" class="btn btn-ghost btn-sm" onclick="addSizeCol(this.previousElementSibling)" style="font-size:11px;">추가</button>
+      </div>
+      <div class="size-cols" style="display:flex; gap:8px; flex-wrap:wrap;">
+        ${defaultSizes.map(s => `
+          <div style="display:flex; flex-direction:column; align-items:center; gap:4px;">
+            <span style="font-size:10px; color:var(--text3);">${s}</span>
+            <input class="table-input size-qty" data-size="${s}" type="number" value="${existingSizes[s]||''}" placeholder="0" style="width:52px; text-align:center;" oninput="updateSizeTotal(this)">
+            <span style="cursor:pointer; font-size:10px; color:var(--text3);" onclick="removeSizeCol(this)">✕</span>
+          </div>`).join('')}
+      </div>
+    </td>`;
+
+  tr.insertAdjacentElement('afterend', panelTr);
+  btn.textContent = '접기';
+
+  // Add event to update total when size values change
+  panelTr.querySelectorAll('.size-qty').forEach(inp => {
+    inp.addEventListener('input', () => updateSizeTotal(inp));
+  });
+}
+
+function addSizeCol(input) {
+  const val = input.value.trim();
+  if (!val) return;
+  const panel = input.closest('.size-panel');
+  const sizeDiv = panel.querySelector('.size-cols');
+  const id = 'sq_' + Date.now();
+  const div = document.createElement('div');
+  div.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:4px;';
+  div.innerHTML = `
+    <span style="font-size:10px;color:var(--text3);">${val}</span>
+    <input class="table-input size-qty" data-size="${val}" type="number" placeholder="0" style="width:52px;text-align:center;" oninput="updateSizeTotal(this)">
+    <span style="cursor:pointer;font-size:10px;color:var(--text3);" onclick="removeSizeCol(this)">✕</span>`;
+  sizeDiv.appendChild(div);
+  input.value = '';
+  div.querySelector('input').focus();
+}
+
+function removeSizeCol(btn) {
+  btn.closest('div').remove();
+  // update total
+  const panel = btn.closest('.size-panel');
+  if (panel) {
+    const mainTr = panel.previousElementSibling;
+    if (mainTr) recalcSizeTotal(mainTr);
+  }
+}
+
+function updateSizeTotal(inp) {
+  const panel = inp.closest('.size-panel');
+  if (!panel) return;
+  recalcSizeTotal(panel.previousElementSibling);
+}
+
+function recalcSizeTotal(mainTr) {
+  if (!mainTr) return;
+  const panel = mainTr.nextElementSibling;
+  if (!panel || !panel.classList.contains('size-panel')) return;
+  const inputs = panel.querySelectorAll('.size-qty');
+  const total = Array.from(inputs).reduce((s,i) => s+(parseInt(i.value)||0), 0);
+  const totalInput = mainTr.querySelector('.size-total');
+  if (totalInput) {
+    totalInput.value = total || '';
+    totalInput.readOnly = inputs.length > 0;
+    totalInput.style.background = inputs.length > 0 ? 'var(--bg1)' : '';
+    totalInput.style.color = inputs.length > 0 ? 'var(--accent)' : '';
+  }
+}
+
+function getSizeDataFromRow(tr) {
+  const panel = tr.nextElementSibling;
+  if (!panel || !panel.classList.contains('size-panel')) {
+    // Use stored data or empty
+    return { sizes: tr.dataset.sizes ? JSON.parse(tr.dataset.sizes) : null, size_list: tr.dataset.sizeList || null };
+  }
+  const inputs = panel.querySelectorAll('.size-qty');
+  if (inputs.length === 0) return { sizes: null, size_list: null };
+  const sizes = {};
+  const size_list = [];
+  inputs.forEach(inp => {
+    const s = inp.dataset.size;
+    sizes[s] = parseInt(inp.value)||0;
+    size_list.push(s);
+  });
+  return { sizes, size_list: size_list.join(',') };
 }
 
 function addFabricRow(d = {}) {
@@ -1653,12 +1778,59 @@ async function openOrderDetail(id) {
 
 function addEditColorRow(d = {}) {
   const tr = document.createElement('tr');
+  const sizes = d.sizes ? (typeof d.sizes === 'string' ? JSON.parse(d.sizes) : d.sizes) : {};
+  const sizeList = d.size_list ? d.size_list.split(',').filter(Boolean) : Object.keys(sizes);
+  const totalQty = sizeList.length > 0 ? sizeList.reduce((s,k) => s+(sizes[k]||0), 0) : (d.qty||0);
+  const hasSizes = sizeList.length > 0;
+
   tr.innerHTML = `
     <td><input class="table-input" value="${d.color_code||''}" placeholder="GY"></td>
     <td><input class="table-input" value="${d.color_name||''}" placeholder="GREY"></td>
-    <td><input class="table-input" type="number" value="${d.qty||''}" placeholder="0"></td>
+    <td><input class="table-input size-total" type="number" value="${totalQty||''}" placeholder="0" ${hasSizes?'readonly style="background:var(--bg1);color:var(--accent);"':''}></td>
+    <td><button type="button" class="btn btn-ghost btn-sm" onclick="toggleSizeInputEdit(this)" style="font-size:11px; white-space:nowrap;">${hasSizes?'✏️ 사이즈 수정':'+ 사이즈 입력'}</button></td>
     <td><span style="cursor:pointer;color:var(--text3);" onclick="this.closest('tr').remove()">✕</span></td>`;
+
+  if (hasSizes) {
+    tr.dataset.sizes = JSON.stringify(sizes);
+    tr.dataset.sizeList = sizeList.join(',');
+  }
   document.getElementById('edit-color-body').appendChild(tr);
+}
+
+function toggleSizeInputEdit(btn) {
+  const tr = btn.closest('tr');
+  const existingSizes = tr.dataset.sizes ? JSON.parse(tr.dataset.sizes) : {};
+  const existingSizeList = tr.dataset.sizeList ? tr.dataset.sizeList.split(',') : [];
+  const nextTr = tr.nextElementSibling;
+  if (nextTr && nextTr.classList.contains('size-panel')) {
+    nextTr.remove();
+    btn.textContent = existingSizeList.length > 0 ? '✏️ 사이즈 수정' : '+ 사이즈 입력';
+    return;
+  }
+  // Reuse same panel logic as order-new
+  const panelTr = document.createElement('tr');
+  panelTr.className = 'size-panel';
+  const colorName = tr.querySelectorAll('input')[1].value || '컬러';
+  panelTr.innerHTML = `
+    <td colspan="5" style="padding:12px; background:var(--bg3); border:1px solid var(--border);">
+      <div style="font-size:11px; color:var(--text3); margin-bottom:8px;">${colorName} — 사이즈별 수량</div>
+      <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:8px;">
+        <input placeholder="사이즈 추가 (예: 78, M, XL)" class="table-input" style="width:180px; font-size:12px;"
+          onkeydown="if(event.key==='Enter'){addSizeCol(this); event.preventDefault();}">
+        <button type="button" class="btn btn-ghost btn-sm" onclick="addSizeCol(this.previousElementSibling)" style="font-size:11px;">추가</button>
+      </div>
+      <div class="size-cols" style="display:flex; gap:8px; flex-wrap:wrap;">
+        ${existingSizeList.map(s => `
+          <div style="display:flex; flex-direction:column; align-items:center; gap:4px;">
+            <span style="font-size:10px; color:var(--text3);">${s}</span>
+            <input class="table-input size-qty" data-size="${s}" type="number" value="${existingSizes[s]||''}" placeholder="0" style="width:52px; text-align:center;" oninput="updateSizeTotal(this)">
+            <span style="cursor:pointer; font-size:10px; color:var(--text3);" onclick="removeSizeCol(this)">✕</span>
+          </div>`).join('')}
+      </div>
+    </td>`;
+  tr.insertAdjacentElement('afterend', panelTr);
+  btn.textContent = '접기';
+  panelTr.querySelectorAll('.size-qty').forEach(inp => inp.addEventListener('input', () => updateSizeTotal(inp)));
 }
 
 function addEditFabricRow(d = {}) {
@@ -1731,7 +1903,15 @@ async function saveOrderEdit() {
     await db.from('order_colors').delete().eq('order_id', id);
     const colors = getTableRows('edit-color-body', []);
     if (colors.length > 0) {
-      await db.from('order_colors').insert(colors.map(r => ({ order_id: id, color_code: r[0], color_name: r[1], qty: parseInt(r[2])||0 })));
+      // Save colors with size data
+    const editColorRows = document.querySelectorAll('#edit-color-body tr:not(.size-panel)');
+    const editColorData = Array.from(editColorRows).map(tr => {
+      const inputs = tr.querySelectorAll('input');
+      const sd = getSizeDataFromRow(tr);
+      return { order_id: id, color_code: inputs[0]?.value||'', color_name: inputs[1]?.value||'',
+               qty: parseInt(inputs[2]?.value)||0, sizes: sd.sizes, size_list: sd.size_list };
+    }).filter(r => r.color_code || r.color_name);
+    await db.from('order_colors').insert(editColorData);
     }
 
     // 원단 업데이트
