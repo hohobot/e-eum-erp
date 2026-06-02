@@ -1336,7 +1336,7 @@ function fillForm(d) {
   // trims
   if (d.trims && d.trims.length > 0) {
     document.getElementById('trim-body').innerHTML = '';
-    d.trims.forEach(t => addTrimRow(t));
+    sortAndGroupTrims(d.trims).forEach(t => addTrimRow(t));
   }
 }
 
@@ -1559,6 +1559,68 @@ function addFabricRow(d = {}) {
     <td><input class="table-input" value="${d.yardage||''}" placeholder="2.16Y"></td>
     <td><span style="cursor:pointer;color:var(--text3);" onclick="this.closest('tr').remove()">✕</span></td>`;
   document.getElementById('fabric-body').appendChild(tr);
+}
+
+
+// ─── 부자재 분류 및 정렬 ─────────────────────────────────────
+function getTrimCategory(t) {
+  const name = (t.trim_name || '').toLowerCase();
+  const spec = (t.spec || '').toLowerCase();
+  const pos = (t.position || '').toLowerCase();
+  const supplier = (t.supplier || '').toLowerCase();
+
+  // 주머니감: 186TC, 트리코트, 마이크로, 브러쉬, 안감류 (부위에 주머니 포함)
+  if (/주머니/.test(pos) || /186tc|트리코트|마이크로브러쉬|microbrush|안감/.test(name + spec)) return 1;
+
+  // 심지: 영일/필코/조원/조아 업체 또는 심지 키워드
+  if (/심지|interlining|fusing|접착|yi-|yw-|pz|kw/.test(name + spec) ||
+      /영일|필코|조원|조아/.test(supplier)) return 2;
+
+  // 지퍼: 지퍼, zipper, ykk, 에프론
+  if (/지퍼|zipper|ykk|에프론|zp/.test(name + spec)) return 3;
+
+  // 스냅/마이깡/캔톤: 오비 잠금류
+  if (/스냅|마이깡|캔톤|켄톤|snap|hook|캔튼/.test(name + spec)) return 4;
+
+  // 밴드: 이밴드, 울밴드, 해링본
+  if (/밴드|band|헤링본|해링본|테이프류/.test(name + spec) && !/심지|fusing/.test(name)) return 5;
+
+  // 봉사: 봉사, 사, cone, thread
+  if (/봉사|코아사|오바사|thread|cone|45s|60s/.test(name + spec)) return 6;
+
+  // 아트웍: 프린트, 자수, 전사, 엠보, 와펜, 폼엠보, 로고
+  if (/프린트|자수|전사|엠보|와펜|artwork|art work|폼엠보|로고프린트|워싱|wap/.test(name + spec)) return 7;
+
+  // 메인라벨
+  if (/메인라벨|main.*label|주라벨/.test(name + spec)) return 8;
+
+  // 사이즈라벨
+  if (/사이즈라벨|size.*label|호칭.*라벨/.test(name + spec)) return 9;
+
+  // 케어라벨
+  if (/케어라벨|care.*label|세탁라벨/.test(name + spec)) return 10;
+
+  // 가격택
+  if (/가격택|price.*tag|가격tag/.test(name + spec)) return 11;
+
+  // 기타 라벨/택류/택고리
+  if (/라벨|택|label|tag|tag.*pin|택고리|tag.*고리/.test(name + spec)) return 12;
+
+  // 폴리백/박스/포장
+  if (/폴리백|poly.*bag|박스|box|포장/.test(name + spec)) return 13;
+
+  // 나머지
+  return 99;
+}
+
+function sortAndGroupTrims(trims) {
+  // 카테고리 부여 후 정렬 (카테고리 → 업체명 순)
+  const withCat = trims.map(t => ({ ...t, _cat: getTrimCategory(t) }));
+  withCat.sort((a, b) => {
+    if (a._cat !== b._cat) return a._cat - b._cat;
+    return (a.supplier || '').localeCompare(b.supplier || '', 'ko');
+  });
+  return withCat;
 }
 
 function addTrimRow(d = {}) {
